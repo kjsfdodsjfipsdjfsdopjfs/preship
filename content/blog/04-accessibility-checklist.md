@@ -1,0 +1,204 @@
+# The Developer's Accessibility Checklist for 2026
+
+*Published on preship.dev/blog*
+
+---
+
+Accessibility standards can feel overwhelming when you first encounter them. WCAG 2.2 contains dozens of success criteria across three conformance levels, and the technical language can be impenetrable for developers who just want to build something that works for everyone.
+
+This guide distills the requirements into a practical checklist. It covers the WCAG 2.2 AA violations that appear most frequently in real-world applications — especially those built with AI coding tools — and explains each one in plain language with concrete fixes.
+
+## Understanding WCAG 2.2 AA
+
+The Web Content Accessibility Guidelines are organized around four principles, often abbreviated as POUR:
+
+**Perceivable.** Information and interface components must be presentable in ways that all users can perceive. This means providing text alternatives for non-text content, captions for video, and sufficient visual contrast.
+
+**Operable.** Interface components and navigation must be operable by all users. This means keyboard accessibility, sufficient time to interact with content, and no content that could cause seizures.
+
+**Understandable.** Information and interface operation must be understandable. This means readable text, predictable behavior, and help with input errors.
+
+**Robust.** Content must be robust enough to be interpreted reliably by a wide variety of user agents, including assistive technologies. This means valid, semantic markup with proper ARIA usage.
+
+WCAG 2.2, the current version, added several new success criteria focused on mobile interaction, cognitive accessibility, and authentication. Level AA is the standard that most legal frameworks reference and that most organizations target.
+
+## The Top 10 Most Common Violations
+
+These are the violations that appear most frequently across automated scans of production websites. If you fix nothing else, fix these.
+
+### 1. Missing Image Alternative Text
+
+**What it means:** Every `<img>` element needs an `alt` attribute. Informational images need descriptive text. Decorative images need an empty `alt=""` attribute.
+
+**Why AI gets this wrong:** AI generates images with no alt attribute at all, or with meaningless values like `alt="image"` or `alt="screenshot"`.
+
+**Fix:**
+```html
+<!-- Bad -->
+<img src="chart.png">
+<img src="decoration.svg" alt="image">
+
+<!-- Good -->
+<img src="chart.png" alt="Revenue growth chart showing 40% increase Q1 to Q4 2025">
+<img src="decoration.svg" alt="">
+```
+
+### 2. Missing Form Input Labels
+
+**What it means:** Every form input needs a programmatically associated label. Placeholder text is not a label.
+
+**Why AI gets this wrong:** AI relies on placeholder attributes for visual context and skips `<label>` elements entirely.
+
+**Fix:**
+```html
+<!-- Bad -->
+<input type="email" placeholder="Enter your email">
+
+<!-- Good -->
+<label for="email">Email address</label>
+<input type="email" id="email" placeholder="you@example.com">
+```
+
+### 3. Insufficient Color Contrast
+
+**What it means:** Normal text needs a contrast ratio of at least 4.5:1 against its background. Large text (18pt or 14pt bold) needs at least 3:1.
+
+**Why AI gets this wrong:** AI prioritizes aesthetic color palettes over contrast compliance. Light gray text on white backgrounds is extremely common in AI output.
+
+**Fix:** Use a contrast checker tool to verify every text-background combination. Common failures include light gray body text, placeholder text color, and text over background images without overlays.
+
+### 4. Empty Links and Buttons
+
+**What it means:** Every link and button must have an accessible name — either from text content, an `aria-label`, or an `aria-labelledby` reference.
+
+**Why AI gets this wrong:** Icon-only buttons are generated without any accessible name. The visual icon communicates purpose to sighted users, but assistive technology announces only "button" or "link."
+
+**Fix:**
+```html
+<!-- Bad -->
+<button><svg>...</svg></button>
+
+<!-- Good -->
+<button aria-label="Close dialog"><svg>...</svg></button>
+```
+
+### 5. Missing Document Language
+
+**What it means:** The `<html>` element must have a `lang` attribute specifying the page language.
+
+**Why AI gets this wrong:** This is simply omitted from generated boilerplate. It is a one-line fix.
+
+**Fix:**
+```html
+<html lang="en">
+```
+
+### 6. Broken Heading Hierarchy
+
+**What it means:** Headings should follow a logical hierarchy. Do not skip levels (for example, jumping from `<h1>` to `<h4>`).
+
+**Why AI gets this wrong:** AI selects heading levels based on visual size rather than document structure.
+
+**Fix:** Use headings to create an outline of your content, not to control text size. Use CSS for sizing.
+
+### 7. Missing Skip Navigation Link
+
+**What it means:** Pages with repeated navigation should provide a mechanism to skip directly to main content.
+
+**Why AI gets this wrong:** Skip links are almost never generated by AI coding tools.
+
+**Fix:**
+```html
+<a href="#main-content" class="sr-only focus:not-sr-only">
+  Skip to main content
+</a>
+```
+
+### 8. Keyboard Inaccessible Interactive Elements
+
+**What it means:** All interactive elements must be reachable and operable with a keyboard alone. Custom components need proper focus management.
+
+**Why AI gets this wrong:** AI uses `<div>` elements with click handlers instead of semantic `<button>` elements, omits `tabindex`, and ignores keyboard event handlers entirely.
+
+**Fix:** Use semantic HTML elements whenever possible. If you must use a custom element, add `role`, `tabindex="0"`, and keyboard event listeners for Enter and Space.
+
+### 9. Missing Focus Indicators
+
+**What it means:** Interactive elements must have visible focus indicators so keyboard users can see where they are on the page.
+
+**Why AI gets this wrong:** AI-generated CSS frequently includes `outline: none` for aesthetic reasons, removing the browser's default focus indicator without providing an alternative.
+
+**Fix:**
+```css
+/* Bad */
+button:focus { outline: none; }
+
+/* Good */
+button:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
+}
+```
+
+### 10. Missing ARIA Attributes on Dynamic Content
+
+**What it means:** Dynamic content updates (notifications, form errors, live data) must be announced to screen readers using ARIA live regions.
+
+**Why AI gets this wrong:** AI does not consider the assistive technology implications of DOM updates.
+
+**Fix:**
+```html
+<div aria-live="polite" aria-atomic="true">
+  Form submitted successfully.
+</div>
+```
+
+## Testing Your Application
+
+Effective accessibility testing combines automated and manual approaches.
+
+### Automated Testing
+
+Automated scanners can detect approximately 30-50% of WCAG violations. They excel at catching missing alt text, contrast failures, broken labels, and structural issues. They cannot evaluate the quality of alt text, the logic of keyboard interactions, or the comprehensibility of content.
+
+PreShip runs automated WCAG 2.2 AA scans against any URL and returns every detectable violation with its location, severity, and fix recommendation. Integrate it into your CI/CD pipeline to catch regressions on every deployment.
+
+### Manual Testing
+
+For the violations that automation cannot catch, these manual tests take under 10 minutes:
+
+1. **Keyboard navigation.** Unplug your mouse and navigate your entire application using only Tab, Shift+Tab, Enter, Space, and Arrow keys. Can you reach everything? Can you see where focus is? Can you escape modals and dropdowns?
+
+2. **Screen reader testing.** Enable VoiceOver (macOS) or NVDA (Windows) and navigate your key flows. Do form inputs have labels? Do images have descriptions? Do dynamic updates get announced?
+
+3. **Zoom testing.** Zoom your browser to 200%. Does content reflow properly? Is anything cut off or overlapping?
+
+4. **Motion and animation.** Does your application respect the `prefers-reduced-motion` media query? Can animations be paused?
+
+## The Checklist
+
+Use this as a pre-deployment review:
+
+- [ ] All images have appropriate alt text (descriptive or empty)
+- [ ] All form inputs have programmatically associated labels
+- [ ] Color contrast meets 4.5:1 for normal text, 3:1 for large text
+- [ ] All interactive elements have accessible names
+- [ ] HTML lang attribute is set
+- [ ] Heading hierarchy is logical and sequential
+- [ ] Skip navigation link is present
+- [ ] All functionality is keyboard accessible
+- [ ] Focus indicators are visible on all interactive elements
+- [ ] Dynamic content uses ARIA live regions
+- [ ] Page has proper landmark regions (main, nav, banner, contentinfo)
+- [ ] Error messages are associated with their form fields
+- [ ] Touch targets are at least 24x24 CSS pixels (WCAG 2.2)
+- [ ] Authentication does not rely solely on cognitive function tests (WCAG 2.2)
+- [ ] Dragging interactions have single-pointer alternatives (WCAG 2.2)
+
+## Automate What You Can
+
+Manual checklist reviews are valuable but do not scale. The most effective strategy is to automate detection of the violations that tools can catch, and focus your manual testing time on the areas that require human judgment.
+
+PreShip scans for every automatically detectable item on this checklist and reports findings in a structured format you can act on immediately.
+
+**Start scanning at [preship.dev](https://preship.dev).** Your first 50 scans are free. See exactly where your application stands against WCAG 2.2 AA — and get a clear path to compliance.
