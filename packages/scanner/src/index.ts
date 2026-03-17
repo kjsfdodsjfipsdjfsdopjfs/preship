@@ -16,6 +16,7 @@ import { crawlSite } from "./crawler";
 import { buildReport } from "./reporter";
 import { generateFixSuggestions } from "./fix-suggestions";
 import type { ScannerConfig, PerformanceMetrics } from "./types";
+import { validateUrl } from "./validate-url";
 
 export { runAccessibilityChecks } from "./accessibility";
 export { runSecurityChecks } from "./security";
@@ -32,6 +33,7 @@ export {
   formatTextReport,
 } from "./reporter";
 export type { StructuredReport, ReportInput } from "./reporter";
+export { validateUrl, validateUrlSync, UrlValidationError } from "./validate-url";
 export * from "./types";
 
 /** Default timeout per page in milliseconds */
@@ -74,11 +76,8 @@ export async function scan(
   let browser: Browser | null = null;
 
   try {
-    // Validate URL
-    const parsedUrl = new URL(url);
-    if (!["http:", "https:"].includes(parsedUrl.protocol)) {
-      throw new Error(`Invalid URL protocol: ${parsedUrl.protocol}. Only HTTP/HTTPS are supported.`);
-    }
+    // Validate URL against SSRF attacks (blocks private IPs, metadata endpoints, non-HTTP protocols)
+    await validateUrl(url);
 
     // Launch browser with security sandbox disabled for container environments
     browser = await puppeteer.launch({
@@ -137,6 +136,9 @@ export async function scan(
       }
 
       try {
+        // Validate each discovered URL before scanning (prevents SSRF via crafted links)
+        await validateUrl(pageUrl);
+
         const scanPage = await browser.newPage();
         if (config.viewport) await scanPage.setViewport(config.viewport);
         if (config.userAgent) await scanPage.setUserAgent(config.userAgent);

@@ -1,6 +1,7 @@
 import type { Page } from "puppeteer";
 import * as cheerio from "cheerio";
 import type { CrawlResult } from "./types";
+import { validateUrl } from "./validate-url";
 
 /** File extensions to skip when crawling (non-HTML resources) */
 const SKIP_EXTENSIONS =
@@ -75,6 +76,9 @@ export async function crawlSite(
     visited.add(currentUrl);
 
     try {
+      // Validate URL before navigating to prevent SSRF via crafted links on the page
+      await validateUrl(currentUrl);
+
       const response = await page.goto(currentUrl, {
         waitUntil: "domcontentloaded",
         timeout: 15000,
@@ -141,6 +145,7 @@ async function fetchSitemap(
   baseOrigin: string
 ): Promise<string[]> {
   const sitemapUrl = `${baseOrigin}/sitemap.xml`;
+  await validateUrl(sitemapUrl);
   const response = await page.goto(sitemapUrl, {
     waitUntil: "networkidle2",
     timeout: 10000,
