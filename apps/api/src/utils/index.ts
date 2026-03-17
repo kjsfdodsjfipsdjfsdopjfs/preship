@@ -1,12 +1,16 @@
 /**
  * Generate a hash of an API key for secure storage.
+ * Uses HMAC-SHA256 with the configured salt for consistent hashing
+ * across the application (matches middleware/auth.ts and local.ts).
  */
-export async function hashApiKey(key: string): Promise<string> {
-  const encoder = new TextEncoder();
-  const data = encoder.encode(key);
-  const hashBuffer = await crypto.subtle.digest("SHA-256", data);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  return hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
+import crypto from "crypto";
+import { config } from "../config";
+
+export function hashApiKey(key: string): string {
+  return crypto
+    .createHmac("sha256", config.apiKeySalt)
+    .update(key)
+    .digest("hex");
 }
 
 /**

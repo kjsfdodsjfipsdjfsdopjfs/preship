@@ -175,7 +175,12 @@ function checkUsageLimit(
 
 const app = express();
 
-app.use(cors({ origin: "*" }));
+app.use(
+  cors({
+    origin: process.env.WEB_URL || "http://localhost:3000",
+    credentials: true,
+  })
+);
 app.use(express.json({ limit: "10mb" }));
 
 // ── Health ──────────────────────────────────────────────────────────
@@ -716,7 +721,6 @@ app.use(
     res.status(500).json({
       success: false,
       error: "Internal server error",
-      message: err.message,
     });
   }
 );

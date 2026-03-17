@@ -2,9 +2,31 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
+const INSECURE_JWT_SECRET = "dev-secret-change-me";
+const INSECURE_API_KEY_SALT = "dev-salt-change-me";
+
+const nodeEnv = process.env.NODE_ENV || "development";
+const jwtSecret = process.env.JWT_SECRET || INSECURE_JWT_SECRET;
+const apiKeySalt = process.env.API_KEY_SALT || INSECURE_API_KEY_SALT;
+
+if (nodeEnv === "production") {
+  if (jwtSecret === INSECURE_JWT_SECRET) {
+    throw new Error(
+      "FATAL: JWT_SECRET must be set to a secure value in production. " +
+        "Do not use the default development secret."
+    );
+  }
+  if (apiKeySalt === INSECURE_API_KEY_SALT) {
+    throw new Error(
+      "FATAL: API_KEY_SALT must be set to a secure value in production. " +
+        "Do not use the default development salt."
+    );
+  }
+}
+
 export const config = {
   port: parseInt(process.env.API_PORT || "3001", 10),
-  nodeEnv: process.env.NODE_ENV || "development",
+  nodeEnv,
 
   // Database
   databaseUrl:
@@ -14,7 +36,7 @@ export const config = {
   redisUrl: process.env.REDIS_URL || "redis://localhost:6379",
 
   // Auth
-  jwtSecret: process.env.JWT_SECRET || "dev-secret-change-me",
+  jwtSecret,
   jwtExpiresIn: process.env.JWT_EXPIRES_IN || "7d",
 
   // Stripe
@@ -29,7 +51,7 @@ export const config = {
   webUrl: process.env.WEB_URL || "http://localhost:3000",
 
   // API Key
-  apiKeySalt: process.env.API_KEY_SALT || "dev-salt-change-me",
+  apiKeySalt,
 
   // Scanning
   scanTimeout: parseInt(process.env.SCAN_TIMEOUT || "60000", 10),

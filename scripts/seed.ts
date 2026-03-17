@@ -1,5 +1,6 @@
 import { Pool } from "pg";
 import bcrypt from "bcryptjs";
+import crypto from "crypto";
 import { v4 as uuidv4 } from "uuid";
 
 const DATABASE_URL =
@@ -13,7 +14,9 @@ async function seed() {
 
     // ── Test User ──────────────────────────────────────────────────────
     const userId = uuidv4();
-    const passwordHash = await bcrypt.hash("password123", 10);
+    // Generate a strong random password for the seed user
+    const seedPassword = crypto.randomBytes(24).toString("base64url");
+    const passwordHash = await bcrypt.hash(seedPassword, 10);
 
     await pool.query(
       `INSERT INTO users (id, email, name, password_hash, plan, created_at)
@@ -23,7 +26,7 @@ async function seed() {
          password_hash = EXCLUDED.password_hash`,
       [userId, "test@preship.dev", "Test User", passwordHash, "free"]
     );
-    console.log("  [user]    test@preship.dev / password123");
+    console.log(`  [user]    test@preship.dev / ${seedPassword}`);
 
     // ── Test Project ───────────────────────────────────────────────────
     const projectId = uuidv4();
