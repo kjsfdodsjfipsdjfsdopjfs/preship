@@ -12,16 +12,15 @@ COPY packages/shared/package.json ./packages/shared/
 COPY apps/web/package.json ./apps/web/
 
 # Install all dependencies (including devDependencies for building)
-RUN npm ci --workspace=@preship/web --workspace=@preship/shared --include-workspace-root
+RUN npm ci
 
 # ── Stage 2: Build ────────────────────────────────────────────────────
 FROM node:20-alpine AS builder
 
 WORKDIR /app
 
+# Copy entire node_modules tree (npm workspaces hoists to root)
 COPY --from=deps /app/node_modules ./node_modules
-COPY --from=deps /app/packages/shared/node_modules ./packages/shared/node_modules
-COPY --from=deps /app/apps/web/node_modules ./apps/web/node_modules
 
 # Copy workspace root files
 COPY package.json package-lock.json* ./

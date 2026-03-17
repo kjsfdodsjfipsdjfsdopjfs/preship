@@ -13,7 +13,7 @@ COPY packages/scanner/package.json ./packages/scanner/
 COPY apps/api/package.json ./apps/api/
 
 # Install all dependencies (including devDependencies for building)
-RUN npm ci --workspace=@preship/api --workspace=@preship/shared --workspace=@preship/scanner --include-workspace-root
+RUN npm ci
 
 # Copy source code
 COPY packages/shared/ ./packages/shared/
@@ -53,7 +53,7 @@ COPY packages/scanner/package.json ./packages/scanner/
 COPY apps/api/package.json ./apps/api/
 
 # Install production dependencies only
-RUN npm ci --workspace=@preship/api --workspace=@preship/shared --workspace=@preship/scanner --include-workspace-root --omit=dev
+RUN npm ci --omit=dev
 
 # Copy built output from builder
 COPY --from=builder /app/packages/shared/dist ./packages/shared/dist
