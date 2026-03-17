@@ -40,3 +40,4 @@ coverage/
 *.sqlite
 local.db
 CREDENTIALS_LOCAL.md
+.local/
