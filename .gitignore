@@ -39,3 +39,4 @@ coverage/
 .claude/
 *.sqlite
 local.db
+CREDENTIALS_LOCAL.md

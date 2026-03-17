@@ -35,11 +35,13 @@ RUN apk add --no-cache \
     harfbuzz \
     ca-certificates \
     ttf-freefont \
+    font-noto-cjk \
     dumb-init
 
-# Puppeteer config
+# Puppeteer config — chromium-browser on Alpine, no sandbox needed in containers
 ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
 ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
+ENV CHROMIUM_FLAGS="--no-sandbox --disable-dev-shm-usage"
 ENV NODE_ENV=production
 
 WORKDIR /app
@@ -61,6 +63,9 @@ COPY --from=builder /app/apps/api/dist ./apps/api/dist
 # Create non-root user for security
 RUN addgroup -g 1001 -S preship && \
     adduser -S preship -u 1001 -G preship
+
+# Chromium needs a writable tmp dir for crash dumps and IPC
+RUN mkdir -p /tmp/chromium && chown preship:preship /tmp/chromium
 
 USER preship
 
