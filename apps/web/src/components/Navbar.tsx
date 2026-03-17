@@ -1,8 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { cn } from "@/lib/utils";
-import Button from "./Button";
 import Logo from "./Logo";
 
 const navLinks = [
@@ -29,8 +27,8 @@ export default function Navbar() {
           </div>
 
           <div className="hidden md:flex items-center gap-3">
-            <Button variant="ghost" size="sm">Log in</Button>
-            <Button variant="primary" size="sm">Sign up free</Button>
+            <a href="/login" className="inline-flex items-center justify-center font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0A0A0A] bg-transparent text-neutral-300 hover:bg-neutral-800 hover:text-white px-3 py-1.5 text-sm rounded-md">Log in</a>
+            <a href="/signup" className="inline-flex items-center justify-center font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0A0A0A] bg-orange-700 text-white hover:bg-orange-800 active:bg-orange-900 shadow-lg shadow-orange-700/20 px-3 py-1.5 text-sm rounded-md">Sign up free</a>
           </div>
 
           <button onClick={() => setMobileOpen(!mobileOpen)} className="md:hidden p-2 text-neutral-300 hover:text-white" aria-label={mobileOpen ? "Close menu" : "Open menu"} aria-expanded={mobileOpen}>
@@ -50,8 +48,8 @@ export default function Navbar() {
               <a key={link.label} href={link.href} className="block text-sm text-neutral-300 hover:text-white transition-colors py-2" onClick={() => setMobileOpen(false)}>{link.label}</a>
             ))}
             <div className="pt-3 border-t border-neutral-800 space-y-2">
-              <Button variant="ghost" size="md" className="w-full">Log in</Button>
-              <Button variant="primary" size="md" className="w-full">Sign up free</Button>
+              <a href="/login" className="block w-full text-center font-medium transition-all duration-200 bg-transparent text-neutral-300 hover:bg-neutral-800 hover:text-white px-4 py-2 text-sm rounded-lg">Log in</a>
+              <a href="/signup" className="block w-full text-center font-medium transition-all duration-200 bg-orange-700 text-white hover:bg-orange-800 active:bg-orange-900 shadow-lg shadow-orange-700/20 px-4 py-2 text-sm rounded-lg">Sign up free</a>
             </div>
           </div>
         </div>
