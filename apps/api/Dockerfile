@@ -60,6 +60,9 @@ COPY --from=builder /app/packages/shared/dist ./packages/shared/dist
 COPY --from=builder /app/packages/scanner/dist ./packages/scanner/dist
 COPY --from=builder /app/apps/api/dist ./apps/api/dist
 
+# Copy SQL migration files (not emitted by tsc)
+COPY --from=builder /app/apps/api/src/migrations ./apps/api/dist/migrations
+
 # Create non-root user for security
 RUN addgroup -g 1001 -S preship && \
     adduser -S preship -u 1001 -G preship

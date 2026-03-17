@@ -9,6 +9,7 @@ import authRoutes from "./routes/auth";
 import billingRoutes from "./routes/billing";
 import projectRoutes from "./routes/projects";
 import { queueService } from "./services/queue";
+import { runMigrations } from "./migrate";
 
 const app = express();
 
@@ -88,6 +89,9 @@ app.use(
 // ── Start Server ─────────────────────────────────────────────────────
 
 async function start() {
+  // Run database migrations before anything else
+  await runMigrations();
+
   // Initialize background job queue (non-blocking - won't crash if Redis is down)
   queueService.initialize().catch((err) => {
     console.warn("Queue initialization skipped:", err);
