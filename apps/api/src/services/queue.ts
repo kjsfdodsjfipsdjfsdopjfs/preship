@@ -1,7 +1,8 @@
 import { Queue, Worker, Job } from "bullmq";
+import { scan } from "@preship/scanner";
 import { config } from "../config";
 import { scanQueries, usageQueries } from "../models/index";
-import type { ScanRequest, ScanResult, CheckCategory } from "@preship/shared";
+import type { ScanRequest } from "@preship/shared";
 
 const SCAN_QUEUE_NAME = "scans";
 
@@ -82,7 +83,7 @@ export class QueueService {
   }
 
   /**
-   * Process a single scan job.
+   * Process a single scan job using the real @preship/scanner.
    */
   private async processScanJob(
     job: Job<ScanJobData>
@@ -96,54 +97,45 @@ export class QueueService {
     await job.updateProgress(10);
 
     try {
-      // Run the scanning engine
-      // In production this would import the actual scanner:
-      // import { scannerService } from './scanner';
-      // const result = await scannerService.executeScan(url, options);
-      const results = await this.runScan({
-        url,
+      await job.updateProgress(20);
+
+      // Run the real scanner from @preship/scanner
+      const result = await scan(url, {
+        maxPages: options?.maxPages ?? config.maxPages,
         categories: options?.categories ?? [
           "accessibility",
           "security",
           "performance",
         ],
-        maxPages: options?.maxPages ?? config.maxPages,
-        onProgress: (p: number) => job.updateProgress(p),
+        includeFixSuggestions: options?.includeFixSuggestions ?? false,
+        viewport: options?.viewport,
+        waitForTimeout: options?.waitForTimeout,
       });
 
       await job.updateProgress(90);
 
-      // Calculate overall score (field name: overallScore per shared types)
-      const overallScore = this.calculateScore(results);
-
-      // Generate LLM fix suggestions if enabled and violations exist
-      if (
-        options?.includeFixSuggestions &&
-        results.violations &&
-        (results.violations as unknown[]).length > 0
-      ) {
-        try {
-          // In production: const suggestions = await llmService.generateFixSuggestions(result.violations.slice(0, 10));
-          // results.suggestions = suggestions;
-          console.log(
-            `[queue] Would generate fix suggestions for ${(results.violations as unknown[]).length} violations`
-          );
-        } catch (err) {
-          console.warn("[queue] Failed to generate fix suggestions:", err);
-        }
-      }
+      const overallScore = result.overallScore ?? 0;
 
       // Store results
       await scanQueries.updateStatus(scanId, "completed", {
         score: overallScore,
-        results,
+        results: {
+          url: result.url,
+          scannedAt: result.createdAt,
+          pagesScanned: result.pagesScanned,
+          duration: result.duration,
+          overallScore,
+          categories: result.categories,
+          violations: result.violations,
+          suggestions: result.suggestions,
+        },
       });
 
       // Increment usage counter
       await usageQueries.incrementUsage(userId);
 
       await job.updateProgress(100);
-      console.log(`[queue] Scan ${scanId} completed with overallScore ${overallScore}`);
+      console.log(`[queue] Scan ${scanId} completed with score ${overallScore}`);
 
       return { scanId, overallScore };
     } catch (error) {
@@ -185,67 +177,6 @@ export class QueueService {
       typeof job.progress === "number" ? job.progress : 0;
 
     return { state, progress };
-  }
-
-  /**
-   * Placeholder scan runner. Replace with actual scanner engine.
-   */
-  private async runScan(opts: {
-    url: string;
-    categories: string[];
-    maxPages: number;
-    onProgress: (percent: number) => Promise<void>;
-  }): Promise<Record<string, unknown>> {
-    const { url, categories } = opts;
-
-    await opts.onProgress(20);
-
-    const results: Record<string, unknown> = {
-      url,
-      scannedAt: new Date().toISOString(),
-      pagesScanned: 1,
-      duration: 0,
-      overallScore: 0,
-      categories: [],
-      violations: [],
-      suggestions: [],
-    };
-
-    const startTime = Date.now();
-
-    for (let i = 0; i < categories.length; i++) {
-      await opts.onProgress(
-        20 + Math.floor((i / categories.length) * 60)
-      );
-
-      // Placeholder category result
-      (results.categories as unknown[]).push({
-        category: categories[i],
-        score: 0,
-        violations: 0,
-        passed: 0,
-      });
-    }
-
-    results.duration = Date.now() - startTime;
-    await opts.onProgress(85);
-
-    return results;
-  }
-
-  /**
-   * Calculate overall score from scan results.
-   */
-  private calculateScore(results: Record<string, unknown>): number {
-    const categories = results.categories as
-      | Array<{ score: number }>
-      | undefined;
-    if (!categories || categories.length === 0) return 0;
-
-    const scores = categories.map((c) => c.score ?? 0);
-    return Math.round(
-      scores.reduce((a, b) => a + b, 0) / scores.length
-    );
   }
 
   /**
