@@ -1,0 +1,80 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" fill="none">
+  <!--
+    PreShip Open Graph Image (1200x630)
+    Dark background, centered logo, tagline, geometric accents
+  -->
+
+  <defs>
+    <!-- Subtle grid pattern -->
+    <pattern id="grid" width="60" height="60" patternUnits="userSpaceOnUse">
+      <path d="M 60 0 L 0 0 0 60" fill="none" stroke="#1A1A1A" stroke-width="0.5"/>
+    </pattern>
+
+    <!-- Radial glow behind logo -->
+    <radialGradient id="glow" cx="50%" cy="45%" r="35%">
+      <stop offset="0%" stop-color="#F97316" stop-opacity="0.08"/>
+      <stop offset="100%" stop-color="#0A0A0A" stop-opacity="0"/>
+    </radialGradient>
+
+    <!-- Top fade for depth -->
+    <linearGradient id="topFade" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#111111"/>
+      <stop offset="100%" stop-color="#0A0A0A"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1200" height="630" fill="#0A0A0A"/>
+  <rect width="1200" height="630" fill="url(#topFade)"/>
+
+  <!-- Grid overlay -->
+  <rect width="1200" height="630" fill="url(#grid)"/>
+
+  <!-- Radial glow -->
+  <rect width="1200" height="630" fill="url(#glow)"/>
+
+  <!-- Decorative geometric elements -->
+  <!-- Top-left corner accent -->
+  <path d="M0 0 L80 0 L0 80 Z" fill="#F97316" opacity="0.06"/>
+  <!-- Bottom-right corner accent -->
+  <path d="M1200 630 L1120 630 L1200 550 Z" fill="#F97316" opacity="0.06"/>
+
+  <!-- Floating geometric shapes -->
+  <rect x="150" y="180" width="3" height="3" fill="#F97316" opacity="0.3" transform="rotate(45 151.5 181.5)"/>
+  <rect x="1020" y="200" width="4" height="4" fill="#F97316" opacity="0.2" transform="rotate(45 1022 202)"/>
+  <rect x="200" y="450" width="3" height="3" fill="#F97316" opacity="0.15" transform="rotate(45 201.5 451.5)"/>
+  <rect x="980" y="420" width="3" height="3" fill="#F97316" opacity="0.25" transform="rotate(45 981.5 421.5)"/>
+
+  <!-- Main logo icon (centered, large) -->
+  <g transform="translate(536, 160) scale(2)">
+    <!-- Sail -->
+    <path d="M18 36 L28 28 L36 8 L36 40 Z" fill="#F97316"/>
+    <!-- Secondary sail -->
+    <path d="M36 16 L46 40 L36 40 Z" fill="#F97316" opacity="0.55"/>
+    <!-- Hull -->
+    <path d="M12 44 L52 44 L46 54 L18 54 Z" fill="#F97316"/>
+    <!-- Waterline -->
+    <path d="M14 48 L50 48" stroke="#EA580C" stroke-width="1.5" stroke-linecap="round"/>
+  </g>
+
+  <!-- Wordmark -->
+  <text x="600" y="380" text-anchor="middle" font-family="'Inter', 'SF Pro Display', system-ui, -apple-system, sans-serif" font-size="56" font-weight="700" letter-spacing="-1">
+    <tspan fill="#FFFFFF">Pre</tspan><tspan fill="#F97316">Ship</tspan>
+  </text>
+
+  <!-- Tagline -->
+  <text x="600" y="425" text-anchor="middle" font-family="'Inter', 'SF Pro Display', system-ui, -apple-system, sans-serif" font-size="20" font-weight="400" fill="#A3A3A3" letter-spacing="0.5">
+    The Quality Gate for AI-Generated Code
+  </text>
+
+  <!-- URL -->
+  <text x="600" y="530" text-anchor="middle" font-family="'Inter', 'SF Pro Display', system-ui, -apple-system, sans-serif" font-size="16" font-weight="500" fill="#737373" letter-spacing="1">
+    preship.dev
+  </text>
+
+  <!-- Bottom accent line -->
+  <rect x="540" y="560" width="120" height="2" rx="1" fill="#F97316" opacity="0.4"/>
+
+  <!-- Border -->
+  <rect x="0.5" y="0.5" width="1199" height="629" rx="0" fill="none" stroke="#262626" stroke-width="1"/>
+</svg>

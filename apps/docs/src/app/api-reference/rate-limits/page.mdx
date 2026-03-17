@@ -1,0 +1,149 @@
+# Rate Limits
+
+PreShip enforces rate limits to ensure fair usage and platform stability. Rate limits vary by plan and are applied per API key.
+
+---
+
+## Limits by Plan
+
+| Plan | Requests/minute | Requests/hour | Concurrent scans |
+|------|----------------|---------------|------------------|
+| Free | 30 | 500 | 2 |
+| Pro | 120 | 5,000 | 10 |
+| Enterprise | 600 | 50,000 | 50 |
+
+---
+
+## Rate Limit Headers
+
+Every API response includes rate limit information in the response headers:
+
+| Header | Description |
+|--------|-------------|
+| `X-RateLimit-Limit` | Maximum number of requests allowed in the current window |
+| `X-RateLimit-Remaining` | Number of requests remaining in the current window |
+| `X-RateLimit-Reset` | Unix timestamp (in seconds) when the rate limit window resets |
+| `X-RateLimit-Window` | Duration of the rate limit window in seconds |
+
+### Example Response Headers
+
+```
+HTTP/1.1 200 OK
+X-RateLimit-Limit: 120
+X-RateLimit-Remaining: 117
+X-RateLimit-Reset: 1705312260
+X-RateLimit-Window: 60
+Content-Type: application/json
+```
+
+---
+
+## Handling Rate Limits
+
+When you exceed the rate limit, the API returns a `429 Too Many Requests` response:
+
+```json
+{
+  "success": false,
+  "error": {
+    "code": "RATE_LIMIT_EXCEEDED",
+    "message": "Rate limit exceeded. Please retry after 45 seconds.",
+    "retryAfter": 45
+  }
+}
+```
+
+The response also includes a `Retry-After` header indicating how many seconds to wait before retrying.
+
+### JavaScript -- Automatic Retry
+
+```javascript
+async function fetchWithRetry(url, options, maxRetries = 3) {
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    const response = await fetch(url, options);
+
+    if (response.status === 429) {
+      const retryAfter = parseInt(response.headers.get("Retry-After") || "60", 10);
+      console.log(`Rate limited. Retrying in ${retryAfter}s...`);
+      await new Promise((resolve) => setTimeout(resolve, retryAfter * 1000));
+      continue;
+    }
+
+    return response;
+  }
+
+  throw new Error("Max retries exceeded");
+}
+
+// Usage
+const response = await fetchWithRetry(
+  "https://api.preship.dev/api/v1/scans",
+  { headers: { "X-API-Key": process.env.PRESHIP_API_KEY } }
+);
+```
+
+### Python -- Automatic Retry
+
+```python
+import requests
+import time
+
+def fetch_with_retry(url, headers, max_retries=3):
+    for attempt in range(max_retries):
+        response = requests.get(url, headers=headers)
+
+        if response.status_code == 429:
+            retry_after = int(response.headers.get("Retry-After", 60))
+            print(f"Rate limited. Retrying in {retry_after}s...")
+            time.sleep(retry_after)
+            continue
+
+        return response
+
+    raise Exception("Max retries exceeded")
+
+# Usage
+response = fetch_with_retry(
+    "https://api.preship.dev/api/v1/scans",
+    headers={"X-API-Key": "sk_live_your_api_key_here"},
+)
+```
+
+---
+
+## Usage Limits vs. Rate Limits
+
+Rate limits and usage limits are different:
+
+| | Rate Limits | Usage Limits |
+|-|-------------|--------------|
+| **What** | Requests per time window | Scans per billing period |
+| **Error code** | `RATE_LIMIT_EXCEEDED` | `USAGE_LIMIT_EXCEEDED` |
+| **HTTP status** | `429` | `429` |
+| **Resolution** | Wait and retry | Upgrade plan or wait for billing period reset |
+| **Header** | `Retry-After` | N/A |
+
+### Usage Limit Error
+
+```json
+{
+  "success": false,
+  "error": {
+    "code": "USAGE_LIMIT_EXCEEDED",
+    "message": "Monthly scan limit reached (50/50). Upgrade to Pro for 500 scans/month.",
+    "limit": 50,
+    "used": 50,
+    "resetsAt": "2025-02-01T00:00:00.000Z"
+  }
+}
+```
+
+---
+
+## Best Practices
+
+- **Monitor headers** -- Check `X-RateLimit-Remaining` before making burst requests
+- **Implement backoff** -- Use exponential backoff with jitter for retry logic
+- **Batch wisely** -- Use multi-page scans instead of many single-page scans
+- **Cache results** -- Store scan results locally instead of re-fetching frequently
+- **Use webhooks** -- Instead of polling for scan results, configure webhooks to receive notifications when scans complete

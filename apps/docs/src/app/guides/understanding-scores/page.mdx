@@ -1,0 +1,220 @@
+# Understanding Your Accessibility Score
+
+PreShip produces detailed accessibility scores based on WCAG 2.1 guidelines. This guide explains how scores are calculated, what the different issue levels mean, and how to prioritize fixes.
+
+---
+
+## How Scores Are Calculated
+
+PreShip uses [axe-core](https://github.com/dequelabs/axe-core), the industry-standard accessibility testing engine, to evaluate your pages. The accessibility score (0-100) is calculated based on:
+
+1. **Total rules evaluated** -- The number of accessibility rules tested on your page
+2. **Rules passed** -- Rules where no violations were found
+3. **Rules violated** -- Rules where one or more elements failed
+4. **Violation severity** -- Critical and serious violations weigh more heavily than moderate or minor ones
+
+The formula gives more weight to critical issues:
+
+| Severity | Weight |
+|----------|--------|
+| Critical | 10 |
+| Serious | 5 |
+| Moderate | 2 |
+| Minor | 1 |
+
+A page with one critical issue will score lower than a page with multiple minor issues.
+
+---
+
+## Score Ratings
+
+| Score Range | Rating | What It Means |
+|-------------|--------|---------------|
+| 90-100 | Excellent | Your page meets WCAG 2.1 AA standards with few or no issues |
+| 70-89 | Good | Minor issues exist but the page is largely accessible |
+| 50-69 | Needs Improvement | Several issues impact accessibility for some users |
+| 0-49 | Poor | Critical barriers prevent some users from accessing your content |
+
+---
+
+## Issue Severity Levels
+
+### Critical
+
+Users are completely blocked from accessing content or functionality.
+
+**Examples:**
+- Images without alt text (screen readers cannot describe them)
+- Form inputs without labels (users cannot identify what to enter)
+- Interactive elements not reachable via keyboard
+
+**Action:** Fix immediately. These issues make content inaccessible to real users.
+
+### Serious
+
+Users experience significant difficulty, though content may still be partially accessible.
+
+**Examples:**
+- Insufficient color contrast (text hard to read for low-vision users)
+- Missing heading structure (difficult for screen reader users to navigate)
+- ARIA attributes used incorrectly
+
+**Action:** Fix as soon as possible. These issues affect a wide range of users.
+
+### Moderate
+
+Users face inconvenience, but content remains accessible through alternative means.
+
+**Examples:**
+- Missing document language attribute
+- Duplicate IDs in the page
+- Elements with unclear role assignments
+
+**Action:** Plan fixes within the next sprint cycle.
+
+### Minor
+
+Small enhancements that improve the experience but do not block access.
+
+**Examples:**
+- Redundant ARIA roles
+- Tab order inconsistencies
+- Minor landmark issues
+
+**Action:** Address when convenient, or include in regular code cleanup.
+
+---
+
+## Common Accessibility Issues
+
+### 1. Missing Image Alt Text
+
+Every `<img>` element needs an `alt` attribute describing its content:
+
+```html
+<!-- Bad -->
+<img src="product.jpg">
+
+<!-- Good -->
+<img src="product.jpg" alt="Red running shoes, side view">
+
+<!-- Decorative image (intentionally empty alt) -->
+<img src="divider.png" alt="">
+```
+
+### 2. Insufficient Color Contrast
+
+Text must have a minimum contrast ratio against its background:
+
+- **Normal text (under 18px):** 4.5:1 ratio required
+- **Large text (18px+ or 14px+ bold):** 3:1 ratio required
+
+### 3. Missing Form Labels
+
+Every form input needs an associated label:
+
+```html
+<!-- Bad -->
+<input type="email" placeholder="Email">
+
+<!-- Good -->
+<label for="email">Email address</label>
+<input type="email" id="email" placeholder="you@example.com">
+```
+
+### 4. Missing Page Language
+
+The `<html>` element should declare the page language:
+
+```html
+<html lang="en">
+```
+
+### 5. Missing Landmarks
+
+Use semantic HTML to create navigational landmarks:
+
+```html
+<header>...</header>
+<nav>...</nav>
+<main>...</main>
+<footer>...</footer>
+```
+
+---
+
+## Prioritizing Fixes
+
+When facing many issues, prioritize by impact and effort:
+
+### Priority 1: Quick wins with high impact
+- Add `lang` attribute to `<html>`
+- Add alt text to images
+- Add labels to form inputs
+- Fix heading hierarchy (use h1-h6 in order)
+
+### Priority 2: Medium effort with high impact
+- Fix color contrast issues
+- Add keyboard navigation support
+- Add ARIA landmarks
+- Fix focus management
+
+### Priority 3: Systematic improvements
+- Audit and fix all ARIA usage
+- Add skip navigation links
+- Test with actual screen readers
+- Add comprehensive keyboard support
+
+---
+
+## WCAG Compliance Levels
+
+PreShip checks against WCAG 2.1 at two levels:
+
+### Level AA (Default)
+
+The standard compliance level required by most accessibility laws. Covers:
+- Text alternatives for images
+- Color contrast (4.5:1 for normal text)
+- Keyboard accessibility
+- Consistent navigation
+- Input error identification
+
+### Level AAA (Optional)
+
+Enhanced compliance for maximum accessibility. Requires:
+- Enhanced contrast (7:1 for normal text)
+- Sign language for multimedia
+- Extended audio descriptions
+- All links identifiable by purpose
+
+To scan for AAA compliance, this will be available as a configuration option in a future release.
+
+---
+
+## Comparing Scores Over Time
+
+Use PreShip projects to track your accessibility score over time. The project history endpoint shows how your score changes with each scan:
+
+```bash
+curl "https://api.preship.dev/api/v1/projects/proj_abc123/history?limit=10" \
+  -H "X-API-Key: sk_live_your_api_key_here"
+```
+
+Aim for consistent upward trends. A score that fluctuates widely may indicate:
+- Content changes introducing new issues
+- Third-party scripts affecting accessibility
+- Dynamic content that is not being scanned consistently
+
+---
+
+## Beyond Automated Testing
+
+Automated tools like PreShip catch approximately 30-50% of accessibility issues. For comprehensive accessibility:
+
+1. **Automated scanning** (PreShip) -- Catch common issues automatically
+2. **Manual testing** -- Navigate your site using only a keyboard
+3. **Screen reader testing** -- Test with VoiceOver (Mac), NVDA (Windows), or JAWS
+4. **User testing** -- Involve people with disabilities in your testing process
+
+PreShip gives you a strong automated baseline. Combine it with manual testing for thorough accessibility coverage.

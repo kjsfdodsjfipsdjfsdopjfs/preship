@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none">
+  <!--
+    PreShip Favicon
+    Simplified ship mark - works at 16x16 through 192x192
+    Reduced detail for small size clarity
+  -->
+
+  <!-- Sail (checkmark-integrated) -->
+  <path d="M9 18 L14 14 L18 4 L18 20 Z" fill="#F97316"/>
+
+  <!-- Secondary sail -->
+  <path d="M18 8 L23 20 L18 20 Z" fill="#F97316" opacity="0.55"/>
+
+  <!-- Hull -->
+  <path d="M6 22 L26 22 L23 27 L9 27 Z" fill="#F97316"/>
+</svg>

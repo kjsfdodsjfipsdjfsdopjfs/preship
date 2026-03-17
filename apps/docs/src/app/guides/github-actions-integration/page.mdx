@@ -1,0 +1,208 @@
+# Integrating PreShip with GitHub Actions
+
+This guide covers multiple patterns for integrating PreShip into your GitHub Actions CI/CD pipeline, from basic scans to advanced multi-environment setups.
+
+---
+
+## Basic Setup
+
+The simplest integration scans your staging URL on every pull request:
+
+```yaml
+name: Accessibility Check
+on: pull_request
+
+jobs:
+  preship:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: preship/scan-action@v1
+        with:
+          url: "https://staging.example.com"
+          api-key: ${{ secrets.PRESHIP_API_KEY }}
+          checks: "accessibility"
+          threshold: "accessibility:90"
+```
+
+---
+
+## Scanning a Built Site
+
+If your site needs to be built and served before scanning, use a local dev server:
+
+```yaml
+name: Accessibility Check
+on: pull_request
+
+jobs:
+  preship:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: "npm"
+
+      - run: npm ci
+      - run: npm run build
+
+      # Start a local server in the background
+      - name: Start preview server
+        run: npx serve out -l 3000 &
+        env:
+          CI: true
+
+      - name: Wait for server
+        run: npx wait-on http://localhost:3000 --timeout 30000
+
+      # The CLI can scan localhost URLs if run from the same machine
+      - name: Run PreShip
+        run: |
+          npx @preship/cli scan http://localhost:3000 \
+            --checks accessibility,performance \
+            --threshold accessibility:90 \
+            --format junit \
+            --output test-results/preship.xml
+        env:
+          PRESHIP_API_KEY: ${{ secrets.PRESHIP_API_KEY }}
+
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: preship-results
+          path: test-results/preship.xml
+```
+
+---
+
+## Matrix Strategy: Multiple URLs
+
+Scan multiple pages in parallel using a matrix strategy:
+
+```yaml
+name: Multi-Page Accessibility Check
+on: pull_request
+
+jobs:
+  preship:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        page:
+          - { name: "Home", path: "/" }
+          - { name: "Login", path: "/login" }
+          - { name: "Dashboard", path: "/dashboard" }
+          - { name: "Settings", path: "/settings" }
+    steps:
+      - uses: preship/scan-action@v1
+        with:
+          url: "https://staging.example.com${{ matrix.page.path }}"
+          api-key: ${{ secrets.PRESHIP_API_KEY }}
+          checks: "accessibility"
+          threshold: "accessibility:90"
+          comment: "true"
+```
+
+---
+
+## Scheduled Scanning
+
+Run scans on a schedule to monitor your production site continuously:
+
+```yaml
+name: Scheduled Accessibility Audit
+on:
+  schedule:
+    # Every Monday at 9 AM UTC
+    - cron: "0 9 * * 1"
+  workflow_dispatch: # Allow manual triggering
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: preship/scan-action@v1
+        id: scan
+        with:
+          url: "https://example.com"
+          api-key: ${{ secrets.PRESHIP_API_KEY }}
+          checks: "accessibility,performance,security,seo"
+          pages: "20"
+          project-id: "proj_abc123"
+
+      - name: Notify on regression
+        if: steps.scan.outputs.accessibility-score < 90
+        uses: slackapi/slack-github-action@v1
+        with:
+          payload: |
+            {
+              "text": "Accessibility score dropped to ${{ steps.scan.outputs.accessibility-score }}/100 on example.com. View results: ${{ steps.scan.outputs.result-url }}"
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+```
+
+---
+
+## Using JUnit Output
+
+PreShip CLI can output results in JUnit XML format, which GitHub Actions natively renders in the Actions tab:
+
+```yaml
+- name: Run PreShip
+  run: |
+    npx @preship/cli scan https://staging.example.com \
+      --checks accessibility \
+      --threshold accessibility:90 \
+      --format junit \
+      --output test-results/preship.xml
+  env:
+    PRESHIP_API_KEY: ${{ secrets.PRESHIP_API_KEY }}
+
+- name: Publish Test Results
+  if: always()
+  uses: dorny/test-reporter@v1
+  with:
+    name: PreShip Results
+    path: test-results/preship.xml
+    reporter: java-junit
+```
+
+---
+
+## Caching for Faster Runs
+
+If you use the CLI via npx, cache the npm download:
+
+```yaml
+- uses: actions/setup-node@v4
+  with:
+    node-version: 20
+    cache: "npm"
+
+- name: Install PreShip CLI
+  run: npm install -g @preship/cli
+
+- name: Run scan
+  run: preship scan https://staging.example.com --threshold accessibility:90
+  env:
+    PRESHIP_API_KEY: ${{ secrets.PRESHIP_API_KEY }}
+```
+
+---
+
+## Required Checks
+
+To enforce accessibility standards before merging:
+
+1. Go to **Settings > Branches** in your GitHub repository
+2. Edit or create a branch protection rule for your main branch
+3. Enable **Require status checks to pass before merging**
+4. Search for and select the PreShip job name
+5. Click **Save changes**
+
+This ensures no pull request can be merged without passing the accessibility scan.

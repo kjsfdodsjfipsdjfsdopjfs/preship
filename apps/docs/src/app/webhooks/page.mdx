@@ -1,0 +1,212 @@
+# Webhooks
+
+Webhooks let you receive real-time notifications when scans complete, instead of polling the API. Configure a webhook URL and PreShip will send a POST request with the scan results.
+
+> Webhooks are available on Pro and Enterprise plans.
+
+---
+
+## Setting Up Webhooks
+
+Configure webhooks in the dashboard under **Settings > Webhooks**, or via the API when creating/updating a project:
+
+```bash
+curl -X PATCH https://api.preship.dev/api/v1/projects/proj_abc123 \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: sk_live_your_api_key_here" \
+  -d '{
+    "notifications": {
+      "webhook": "https://your-server.com/webhooks/preship"
+    }
+  }'
+```
+
+---
+
+## Events
+
+| Event | Description |
+|-------|-------------|
+| `scan.completed` | A scan has finished successfully |
+| `scan.failed` | A scan has failed |
+| `threshold.breached` | A scan score fell below a project threshold |
+
+---
+
+## Payload Format
+
+### `scan.completed`
+
+```json
+{
+  "event": "scan.completed",
+  "timestamp": "2025-01-15T10:30:45.000Z",
+  "data": {
+    "scanId": "scan_8f3k2j1m5n7p",
+    "projectId": "proj_abc123",
+    "url": "https://example.com",
+    "status": "completed",
+    "scores": {
+      "accessibility": 87,
+      "performance": 92
+    },
+    "summary": {
+      "totalIssues": 5,
+      "critical": 1,
+      "serious": 2,
+      "moderate": 1,
+      "minor": 1
+    },
+    "duration": 42000,
+    "resultUrl": "https://app.preship.dev/scans/scan_8f3k2j1m5n7p"
+  }
+}
+```
+
+### `scan.failed`
+
+```json
+{
+  "event": "scan.failed",
+  "timestamp": "2025-01-15T10:31:00.000Z",
+  "data": {
+    "scanId": "scan_xyz789",
+    "projectId": "proj_abc123",
+    "url": "https://example.com",
+    "status": "failed",
+    "error": {
+      "code": "URL_UNREACHABLE",
+      "message": "Could not load the page. The URL returned a 503 status."
+    }
+  }
+}
+```
+
+### `threshold.breached`
+
+```json
+{
+  "event": "threshold.breached",
+  "timestamp": "2025-01-15T10:30:45.000Z",
+  "data": {
+    "scanId": "scan_8f3k2j1m5n7p",
+    "projectId": "proj_abc123",
+    "url": "https://example.com",
+    "breaches": [
+      {
+        "check": "accessibility",
+        "score": 82,
+        "threshold": 90,
+        "delta": -8
+      }
+    ],
+    "resultUrl": "https://app.preship.dev/scans/scan_8f3k2j1m5n7p"
+  }
+}
+```
+
+---
+
+## Webhook Verification
+
+Every webhook request includes a signature in the `X-PreShip-Signature` header. Verify this signature to ensure the request is authentic.
+
+The signature is an HMAC-SHA256 hash of the request body using your webhook secret.
+
+### Verification Example (Node.js)
+
+```javascript
+import crypto from "crypto";
+
+function verifyWebhook(payload, signature, secret) {
+  const expected = crypto
+    .createHmac("sha256", secret)
+    .update(payload)
+    .digest("hex");
+
+  return crypto.timingSafeEqual(
+    Buffer.from(signature),
+    Buffer.from(expected)
+  );
+}
+
+// Express middleware
+app.post("/webhooks/preship", (req, res) => {
+  const signature = req.headers["x-preship-signature"];
+  const isValid = verifyWebhook(
+    JSON.stringify(req.body),
+    signature,
+    process.env.PRESHIP_WEBHOOK_SECRET
+  );
+
+  if (!isValid) {
+    return res.status(401).json({ error: "Invalid signature" });
+  }
+
+  const { event, data } = req.body;
+
+  switch (event) {
+    case "scan.completed":
+      console.log(`Scan ${data.scanId} completed: ${data.scores.accessibility}`);
+      break;
+    case "threshold.breached":
+      console.log(`Threshold breached for ${data.projectId}`);
+      break;
+  }
+
+  res.status(200).json({ received: true });
+});
+```
+
+### Verification Example (Python)
+
+```python
+import hmac
+import hashlib
+from flask import Flask, request, jsonify
+
+app = Flask(__name__)
+WEBHOOK_SECRET = os.environ["PRESHIP_WEBHOOK_SECRET"]
+
+def verify_webhook(payload, signature, secret):
+    expected = hmac.new(
+        secret.encode(),
+        payload.encode(),
+        hashlib.sha256,
+    ).hexdigest()
+    return hmac.compare_digest(signature, expected)
+
+@app.route("/webhooks/preship", methods=["POST"])
+def handle_webhook():
+    signature = request.headers.get("X-PreShip-Signature", "")
+    is_valid = verify_webhook(request.get_data(as_text=True), signature, WEBHOOK_SECRET)
+
+    if not is_valid:
+        return jsonify({"error": "Invalid signature"}), 401
+
+    event = request.json["event"]
+    data = request.json["data"]
+
+    if event == "scan.completed":
+        print(f"Scan {data['scanId']} completed: {data['scores']['accessibility']}")
+    elif event == "threshold.breached":
+        print(f"Threshold breached for {data['projectId']}")
+
+    return jsonify({"received": True}), 200
+```
+
+---
+
+## Retry Policy
+
+If your webhook endpoint returns a non-2xx status code, PreShip retries the delivery with exponential backoff:
+
+| Attempt | Delay |
+|---------|-------|
+| 1st retry | 30 seconds |
+| 2nd retry | 2 minutes |
+| 3rd retry | 15 minutes |
+| 4th retry | 1 hour |
+| 5th retry | 4 hours |
+
+After 5 failed attempts, the delivery is marked as failed. You can view failed deliveries and trigger manual retries from the dashboard under **Settings > Webhooks > Delivery Log**.

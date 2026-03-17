@@ -1,0 +1,193 @@
+# Setting Up Continuous Accessibility Monitoring
+
+This guide explains how to configure PreShip to automatically scan your site on a schedule, track score trends, and alert you when regressions occur.
+
+---
+
+## Overview
+
+Continuous monitoring catches accessibility regressions that can creep in through content changes, CMS updates, or third-party scripts -- things that CI/CD scans on deploy might miss. With PreShip projects and scheduled scans, you get ongoing visibility into your site's accessibility health.
+
+---
+
+## Step 1: Create a Project
+
+Create a project to track your site over time:
+
+```bash
+curl -X POST https://api.preship.dev/api/v1/projects \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: sk_live_your_api_key_here" \
+  -d '{
+    "name": "Production Site",
+    "url": "https://example.com",
+    "checks": ["accessibility", "performance"],
+    "schedule": "0 9 * * 1",
+    "thresholds": {
+      "accessibility": 90,
+      "performance": 80
+    },
+    "notifications": {
+      "email": true,
+      "webhook": "https://your-server.com/webhooks/preship"
+    }
+  }'
+```
+
+This creates a project that:
+- Scans `https://example.com` every Monday at 9 AM
+- Runs accessibility and performance checks
+- Sends email notifications when scans complete
+- Triggers a webhook for custom integrations
+- Flags scans where accessibility drops below 90 or performance below 80
+
+---
+
+## Step 2: Configure Schedules
+
+The `schedule` field accepts standard cron expressions (evaluated in UTC):
+
+| Schedule | Cron Expression | Description |
+|----------|----------------|-------------|
+| Daily at 9 AM | `0 9 * * *` | Good for high-traffic sites |
+| Weekdays at 9 AM | `0 9 * * 1-5` | Skip weekends |
+| Monday at 9 AM | `0 9 * * 1` | Weekly check, recommended starting point |
+| Monthly | `0 9 1 * *` | First of each month, for stable sites |
+
+Update a project's schedule:
+
+```bash
+curl -X PATCH https://api.preship.dev/api/v1/projects/proj_abc123 \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: sk_live_your_api_key_here" \
+  -d '{
+    "schedule": "0 9 * * 1-5"
+  }'
+```
+
+---
+
+## Step 3: Set Up Alerts
+
+### Email Notifications
+
+Email notifications are enabled by default when you create a project. They are sent when:
+- A scheduled scan completes
+- A score falls below your configured threshold
+
+### Webhook Notifications
+
+For custom integrations (Slack, PagerDuty, etc.), configure a webhook URL:
+
+```bash
+curl -X PATCH https://api.preship.dev/api/v1/projects/proj_abc123 \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: sk_live_your_api_key_here" \
+  -d '{
+    "notifications": {
+      "webhook": "https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK"
+    }
+  }'
+```
+
+### Example: Slack Alert via Webhook
+
+Set up a simple webhook handler that forwards PreShip notifications to Slack:
+
+```javascript
+// webhook-handler.js
+import express from "express";
+
+const app = express();
+app.use(express.json());
+
+app.post("/webhooks/preship", async (req, res) => {
+  const { event, data } = req.body;
+
+  if (event === "threshold.breached") {
+    const breaches = data.breaches
+      .map((b) => `${b.check}: ${b.score}/${b.threshold}`)
+      .join(", ");
+
+    await fetch(process.env.SLACK_WEBHOOK_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        text: `PreShip Alert: Score thresholds breached for ${data.url}\n${breaches}\nView results: ${data.resultUrl}`,
+      }),
+    });
+  }
+
+  res.json({ received: true });
+});
+
+app.listen(3000);
+```
+
+---
+
+## Step 4: Review Trends
+
+Use the project history endpoint to analyze score trends:
+
+```javascript
+const response = await fetch(
+  "https://api.preship.dev/api/v1/projects/proj_abc123/history?limit=30",
+  { headers: { "X-API-Key": process.env.PRESHIP_API_KEY } }
+);
+
+const { data } = await response.json();
+
+// Calculate average score over last 30 scans
+const scores = data.items.map((s) => s.scores.accessibility);
+const average = scores.reduce((a, b) => a + b, 0) / scores.length;
+console.log(`Average accessibility score (30 scans): ${average.toFixed(1)}`);
+
+// Detect downward trend
+const recent = scores.slice(0, 5);
+const earlier = scores.slice(-5);
+const recentAvg = recent.reduce((a, b) => a + b, 0) / recent.length;
+const earlierAvg = earlier.reduce((a, b) => a + b, 0) / earlier.length;
+
+if (recentAvg < earlierAvg - 5) {
+  console.warn("Downward trend detected in accessibility scores");
+}
+```
+
+You can also view score history visually in the PreShip dashboard at **Projects > [Your Project] > History**.
+
+---
+
+## Monitoring Multiple Sites
+
+Create a project for each site or environment you want to monitor:
+
+```bash
+# Production
+curl -X POST https://api.preship.dev/api/v1/projects \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: sk_live_your_api_key_here" \
+  -d '{"name": "Production", "url": "https://example.com", "schedule": "0 9 * * *"}'
+
+# Staging
+curl -X POST https://api.preship.dev/api/v1/projects \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: sk_live_your_api_key_here" \
+  -d '{"name": "Staging", "url": "https://staging.example.com", "schedule": "0 9 * * 1-5"}'
+
+# Marketing site
+curl -X POST https://api.preship.dev/api/v1/projects \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: sk_live_your_api_key_here" \
+  -d '{"name": "Marketing Site", "url": "https://marketing.example.com", "schedule": "0 9 * * 1"}'
+```
+
+---
+
+## Best Practices
+
+- **Start with weekly scans** and increase frequency once you have a baseline
+- **Set thresholds slightly above your current scores** to prevent regressions rather than demanding immediate perfection
+- **Scan multiple pages** (increase the `pages` parameter) to catch issues across your site, not just the homepage
+- **Combine scheduled monitoring with CI/CD scans** -- use projects for ongoing monitoring and the GitHub Action for PR-level checks
+- **Review the dashboard regularly** -- even passing scores may hide emerging trends

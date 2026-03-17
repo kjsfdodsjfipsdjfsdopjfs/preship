@@ -1,0 +1,284 @@
+# CLI Reference
+
+The PreShip CLI lets you run accessibility scans from your terminal, CI/CD pipelines, or local development workflow. It wraps the PreShip API with a developer-friendly interface and formatted output.
+
+---
+
+## Installation
+
+Install the CLI globally via npm:
+
+```bash
+npm install -g @preship/cli
+```
+
+Or use it without installing via npx:
+
+```bash
+npx @preship/cli scan https://example.com
+```
+
+Verify the installation:
+
+```bash
+preship --version
+```
+
+---
+
+## Authentication
+
+Before using the CLI, authenticate with your API key:
+
+```bash
+preship login
+```
+
+This opens a browser window to log in and stores your API key locally at `~/.preship/config.json`.
+
+Alternatively, pass the key directly:
+
+```bash
+preship login --api-key sk_live_your_api_key_here
+```
+
+Or set it as an environment variable (recommended for CI/CD):
+
+```bash
+export PRESHIP_API_KEY=sk_live_your_api_key_here
+```
+
+---
+
+## Commands
+
+### `preship scan`
+
+Run a scan against a URL and display results in the terminal.
+
+```bash
+preship scan <url> [options]
+```
+
+#### Options
+
+| Flag | Short | Default | Description |
+|------|-------|---------|-------------|
+| `--checks` | `-c` | `accessibility` | Comma-separated check types: `accessibility`, `performance`, `security`, `seo` |
+| `--pages` | `-p` | `1` | Number of pages to crawl |
+| `--project` | | -- | Associate scan with a project ID |
+| `--threshold` | `-t` | -- | Minimum score to pass (exit code 1 if below). Format: `accessibility:90,performance:80` |
+| `--format` | `-f` | `table` | Output format: `table`, `json`, `markdown`, `junit` |
+| `--output` | `-o` | -- | Write results to file instead of stdout |
+| `--wait` | `-w` | `true` | Wait for scan to complete before returning |
+| `--timeout` | | `120` | Maximum seconds to wait for scan completion |
+| `--verbose` | `-v` | `false` | Show detailed issue information |
+| `--no-color` | | `false` | Disable colored output |
+
+#### Examples
+
+Basic accessibility scan:
+
+```bash
+preship scan https://example.com
+```
+
+Multi-check scan with threshold:
+
+```bash
+preship scan https://example.com \
+  --checks accessibility,performance,seo \
+  --threshold accessibility:90,performance:80 \
+  --pages 5
+```
+
+Output as JSON for scripting:
+
+```bash
+preship scan https://example.com --format json --output results.json
+```
+
+Generate JUnit XML for CI integration:
+
+```bash
+preship scan https://example.com \
+  --format junit \
+  --output test-results/preship.xml
+```
+
+Verbose output showing all issues:
+
+```bash
+preship scan https://example.com --verbose
+```
+
+#### Example Output
+
+```
+PreShip Scan Results
+======================
+
+URL:     https://example.com
+Status:  completed
+Time:    42s
+
+Scores
+------
+  Accessibility:  87 / 100
+  Performance:    92 / 100
+
+Issues (5 total)
+----------------
+  CRITICAL  1    Images must have alternative text
+  SERIOUS   2    Elements must meet color contrast thresholds
+  MODERATE  1    Document must have a main landmark
+  MINOR     1    Links must have discernible text
+
+Run with --verbose for full issue details.
+```
+
+---
+
+### `preship login`
+
+Authenticate the CLI with your PreShip account.
+
+```bash
+preship login [options]
+```
+
+| Flag | Description |
+|------|-------------|
+| `--api-key <key>` | Pass API key directly instead of browser login |
+
+---
+
+### `preship config`
+
+View or update CLI configuration.
+
+```bash
+preship config [key] [value]
+```
+
+#### Subcommands
+
+```bash
+# View all config
+preship config list
+
+# Get a config value
+preship config get api-key
+
+# Set a config value
+preship config set default-checks accessibility,performance
+
+# Reset to defaults
+preship config reset
+```
+
+#### Configuration Keys
+
+| Key | Default | Description |
+|-----|---------|-------------|
+| `api-key` | -- | Your PreShip API key |
+| `api-url` | `https://api.preship.dev` | API base URL |
+| `default-checks` | `accessibility` | Default check types for scans |
+| `default-threshold` | -- | Default score thresholds |
+| `output-format` | `table` | Default output format |
+
+---
+
+### `preship report`
+
+Generate a detailed HTML report from a previous scan.
+
+```bash
+preship report <scan-id> [options]
+```
+
+| Flag | Short | Default | Description |
+|------|-------|---------|-------------|
+| `--output` | `-o` | `preship-report.html` | Output file path |
+| `--open` | | `true` | Open the report in a browser after generating |
+
+#### Example
+
+```bash
+# Generate report from a scan
+preship report scan_8f3k2j1m5n7p --output report.html
+
+# Scan and generate report in one step
+preship scan https://example.com --format json --output results.json && \
+  preship report $(jq -r .data.scanId results.json)
+```
+
+---
+
+### `preship projects`
+
+Manage projects from the CLI.
+
+```bash
+# List projects
+preship projects list
+
+# Show project details
+preship projects show proj_abc123
+
+# Show project scan history
+preship projects history proj_abc123 --limit 10
+```
+
+---
+
+## CI/CD Usage
+
+### Environment Variables
+
+| Variable | Description |
+|----------|-------------|
+| `PRESHIP_API_KEY` | API key for authentication (required) |
+| `PRESHIP_API_URL` | Custom API URL (optional) |
+| `CI` | Set automatically by most CI systems; enables non-interactive mode |
+| `NO_COLOR` | Disable colored output |
+
+### Exit Codes
+
+| Code | Description |
+|------|-------------|
+| `0` | Scan completed and all thresholds passed |
+| `1` | Scan completed but one or more thresholds failed |
+| `2` | Scan failed or an error occurred |
+
+### Example: GitHub Actions
+
+```yaml
+- name: Run PreShip
+  env:
+    PRESHIP_API_KEY: ${{ secrets.PRESHIP_API_KEY }}
+  run: |
+    npx @preship/cli scan ${{ env.DEPLOY_URL }} \
+      --checks accessibility,performance \
+      --threshold accessibility:90 \
+      --format junit \
+      --output test-results/preship.xml
+```
+
+### Example: GitLab CI
+
+```yaml
+accessibility_scan:
+  image: node:20
+  script:
+    - npx @preship/cli scan $DEPLOY_URL
+      --checks accessibility
+      --threshold accessibility:90
+      --format junit
+      --output preship-results.xml
+  artifacts:
+    reports:
+      junit: preship-results.xml
+  variables:
+    PRESHIP_API_KEY: $PRESHIP_API_KEY
+```

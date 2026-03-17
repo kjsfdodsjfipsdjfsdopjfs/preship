@@ -1,0 +1,204 @@
+# GitHub Action
+
+The `preship/scan-action` GitHub Action integrates PreShip into your CI/CD pipeline. It runs accessibility, performance, and security scans on your deployed site and optionally posts results as PR comments.
+
+---
+
+## Installation
+
+Add the action to your workflow file at `.github/workflows/preship.yml`:
+
+```yaml
+name: PreShip Scan
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: preship/scan-action@v1
+        with:
+          url: "https://your-preview-url.vercel.app"
+          api-key: ${{ secrets.PRESHIP_API_KEY }}
+```
+
+---
+
+## Inputs
+
+| Input | Required | Default | Description |
+|-------|----------|---------|-------------|
+| `url` | Yes | -- | The URL to scan |
+| `api-key` | Yes | -- | PreShip API key. Store as a GitHub secret. |
+| `checks` | No | `accessibility` | Comma-separated check types: `accessibility`, `performance`, `security`, `seo` |
+| `pages` | No | `1` | Number of pages to crawl (max varies by plan) |
+| `threshold` | No | -- | Minimum scores to pass. Format: `accessibility:90,performance:80` |
+| `project-id` | No | -- | Associate scans with a PreShip project |
+| `comment` | No | `true` | Post results as a PR comment (only on `pull_request` events) |
+| `fail-on-threshold` | No | `true` | Fail the workflow step if scores are below thresholds |
+| `format` | No | `table` | Output format for the step summary: `table`, `json`, `markdown` |
+| `timeout` | No | `120` | Maximum seconds to wait for scan completion |
+
+---
+
+## Outputs
+
+| Output | Description |
+|--------|-------------|
+| `scan-id` | The ID of the created scan |
+| `status` | Scan status: `completed` or `failed` |
+| `accessibility-score` | Accessibility score (0-100) |
+| `performance-score` | Performance score (0-100) |
+| `security-score` | Security score (0-100) |
+| `seo-score` | SEO score (0-100) |
+| `total-issues` | Total number of issues found |
+| `critical-issues` | Number of critical issues |
+| `result-url` | URL to the full scan results in the PreShip dashboard |
+
+---
+
+## Examples
+
+### Basic Scan
+
+Run an accessibility scan on every pull request:
+
+```yaml
+name: Accessibility Check
+on: pull_request
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: preship/scan-action@v1
+        with:
+          url: "https://staging.example.com"
+          api-key: ${{ secrets.PRESHIP_API_KEY }}
+          threshold: "accessibility:90"
+```
+
+### Full Configuration
+
+Run all checks with strict thresholds and PR comments:
+
+```yaml
+name: PreShip Full Scan
+on:
+  pull_request:
+    types: [opened, synchronize]
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: preship/scan-action@v1
+        id: preship
+        with:
+          url: "https://preview-${{ github.event.pull_request.number }}.example.com"
+          api-key: ${{ secrets.PRESHIP_API_KEY }}
+          checks: "accessibility,performance,security,seo"
+          pages: "10"
+          threshold: "accessibility:95,performance:80,security:90"
+          project-id: "proj_abc123"
+          comment: "true"
+          fail-on-threshold: "true"
+          timeout: "180"
+
+      - name: Print results
+        if: always()
+        run: |
+          echo "Scan ID: ${{ steps.preship.outputs.scan-id }}"
+          echo "Accessibility: ${{ steps.preship.outputs.accessibility-score }}"
+          echo "Performance: ${{ steps.preship.outputs.performance-score }}"
+          echo "Issues: ${{ steps.preship.outputs.total-issues }}"
+          echo "Results: ${{ steps.preship.outputs.result-url }}"
+```
+
+### Scan After Vercel Deploy
+
+Wait for a Vercel preview deployment before scanning:
+
+```yaml
+name: PreShip on Deploy
+on:
+  deployment_status:
+
+jobs:
+  scan:
+    if: github.event.deployment_status.state == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: preship/scan-action@v1
+        with:
+          url: ${{ github.event.deployment_status.target_url }}
+          api-key: ${{ secrets.PRESHIP_API_KEY }}
+          checks: "accessibility,performance"
+          threshold: "accessibility:90"
+          comment: "true"
+```
+
+### Using Outputs for Custom Logic
+
+Use scan outputs to implement custom pass/fail logic:
+
+```yaml
+name: Custom Scan Logic
+on: pull_request
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: preship/scan-action@v1
+        id: scan
+        with:
+          url: "https://staging.example.com"
+          api-key: ${{ secrets.PRESHIP_API_KEY }}
+          checks: "accessibility,performance"
+          fail-on-threshold: "false"
+
+      - name: Check critical issues
+        if: steps.scan.outputs.critical-issues != '0'
+        run: |
+          echo "::error::Found ${{ steps.scan.outputs.critical-issues }} critical accessibility issues"
+          exit 1
+
+      - name: Warn on low score
+        if: steps.scan.outputs.accessibility-score < 90
+        run: |
+          echo "::warning::Accessibility score is ${{ steps.scan.outputs.accessibility-score }}/100"
+```
+
+### Post Results as PR Comment
+
+When `comment: true` is set and the workflow runs on a `pull_request` event, the action automatically posts a formatted comment like this:
+
+```markdown
+## PreShip Scan Results
+
+| Check | Score | Status |
+|-------|-------|--------|
+| Accessibility | 92/100 | Pass |
+| Performance | 85/100 | Pass |
+| Security | 95/100 | Pass |
+
+**Issues Found:** 3 total (0 critical, 1 serious, 1 moderate, 1 minor)
+
+[View full report](https://app.preship.dev/scans/scan_8f3k2j1m5n7p)
+```
+
+---
+
+## Storing Your API Key
+
+1. Go to your repository **Settings > Secrets and variables > Actions**
+2. Click **New repository secret**
+3. Name: `PRESHIP_API_KEY`
+4. Value: Your PreShip API key (starts with `sk_live_`)
+5. Click **Add secret**
+
+For organization-wide usage, create an organization secret instead.

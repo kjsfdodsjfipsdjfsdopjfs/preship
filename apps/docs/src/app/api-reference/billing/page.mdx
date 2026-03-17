@@ -1,0 +1,171 @@
+# Billing API
+
+The Billing API provides information about your current plan and API usage. Use these endpoints to monitor scan consumption and plan limits.
+
+---
+
+## Get Usage
+
+<span className="method-get">GET</span> `/api/v1/billing/usage`
+
+Returns your current billing period usage, including scans consumed, pages scanned, and remaining allowances.
+
+### Query Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `from` | string | Start of current billing period | Start date (ISO 8601) |
+| `to` | string | Now | End date (ISO 8601) |
+
+### Response
+
+```json
+{
+  "success": true,
+  "data": {
+    "period": {
+      "start": "2025-01-01T00:00:00.000Z",
+      "end": "2025-02-01T00:00:00.000Z"
+    },
+    "scans": {
+      "used": 127,
+      "limit": 500,
+      "remaining": 373
+    },
+    "pages": {
+      "used": 842,
+      "limit": 5000,
+      "remaining": 4158
+    },
+    "apiCalls": {
+      "used": 1240,
+      "limit": 50000,
+      "remaining": 48760
+    }
+  }
+}
+```
+
+### curl
+
+```bash
+curl https://api.preship.dev/api/v1/billing/usage \
+  -H "X-API-Key: sk_live_your_api_key_here"
+```
+
+### JavaScript
+
+```javascript
+const response = await fetch(
+  "https://api.preship.dev/api/v1/billing/usage",
+  { headers: { "X-API-Key": process.env.PRESHIP_API_KEY } }
+);
+
+const { data } = await response.json();
+console.log(`Scans used: ${data.scans.used} / ${data.scans.limit}`);
+console.log(`Pages scanned: ${data.pages.used} / ${data.pages.limit}`);
+```
+
+### Python
+
+```python
+import requests
+
+response = requests.get(
+    "https://api.preship.dev/api/v1/billing/usage",
+    headers={"X-API-Key": "sk_live_your_api_key_here"},
+)
+
+data = response.json()["data"]
+print(f"Scans used: {data['scans']['used']} / {data['scans']['limit']}")
+print(f"Pages scanned: {data['pages']['used']} / {data['pages']['limit']}")
+```
+
+---
+
+## Get Plan
+
+<span className="method-get">GET</span> `/api/v1/billing/plan`
+
+Returns details about your current subscription plan, including features and limits.
+
+### Response
+
+```json
+{
+  "success": true,
+  "data": {
+    "plan": "pro",
+    "status": "active",
+    "features": {
+      "scansPerMonth": 500,
+      "pagesPerScan": 25,
+      "scheduledScans": true,
+      "apiAccess": true,
+      "webhooks": true,
+      "checks": ["accessibility", "performance", "security", "seo"],
+      "teamMembers": 5,
+      "dataRetentionDays": 90,
+      "prioritySupport": false
+    },
+    "billing": {
+      "amount": 2900,
+      "currency": "usd",
+      "interval": "month",
+      "nextPayment": "2025-02-01T00:00:00.000Z"
+    }
+  }
+}
+```
+
+### Plan Comparison
+
+| Feature | Free | Pro | Enterprise |
+|---------|------|-----|------------|
+| Scans per month | 50 | 500 | Unlimited |
+| Pages per scan | 5 | 25 | 50 |
+| Check types | Accessibility only | All | All |
+| Scheduled scans | No | Yes | Yes |
+| API access | Yes | Yes | Yes |
+| Webhooks | No | Yes | Yes |
+| Team members | 1 | 5 | Unlimited |
+| Data retention | 7 days | 90 days | 1 year |
+| Support | Community | Email | Priority |
+| Price | Free | $29/mo | Custom |
+
+### curl
+
+```bash
+curl https://api.preship.dev/api/v1/billing/plan \
+  -H "X-API-Key: sk_live_your_api_key_here"
+```
+
+### JavaScript
+
+```javascript
+const response = await fetch(
+  "https://api.preship.dev/api/v1/billing/plan",
+  { headers: { "X-API-Key": process.env.PRESHIP_API_KEY } }
+);
+
+const { data } = await response.json();
+console.log(`Plan: ${data.plan}`);
+console.log(`Scans/month: ${data.features.scansPerMonth}`);
+console.log(`Next payment: ${data.billing.nextPayment}`);
+```
+
+### Python
+
+```python
+import requests
+
+response = requests.get(
+    "https://api.preship.dev/api/v1/billing/plan",
+    headers={"X-API-Key": "sk_live_your_api_key_here"},
+)
+
+data = response.json()["data"]
+print(f"Plan: {data['plan']}")
+print(f"Scans/month: {data['features']['scansPerMonth']}")
+print(f"Next payment: {data['billing']['nextPayment']}")
+```

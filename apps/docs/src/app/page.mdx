@@ -1,0 +1,57 @@
+# PreShip Documentation
+
+PreShip is an API-first platform for automated accessibility, security, and performance scanning of web applications. Ship with confidence knowing your app meets WCAG standards, security best practices, and performance benchmarks.
+
+---
+
+## Key Features
+
+- **Accessibility Scanning** -- Automated WCAG 2.1 AA/AAA compliance checks powered by axe-core
+- **Performance Audits** -- Lighthouse-based performance, SEO, and best-practice scoring
+- **Security Analysis** -- Header checks, mixed content detection, and common vulnerability scanning
+- **Multi-page Crawling** -- Scan entire sites, not just single pages
+- **CI/CD Integration** -- CLI tool and GitHub Action for pipeline integration
+- **Project Tracking** -- Track scan history and score trends over time
+- **REST API** -- Full programmatic access to all scanning features
+
+---
+
+## Quick Links
+
+| Resource | Description |
+|----------|-------------|
+| [Getting Started](/getting-started) | Create your account and run your first scan |
+| [API Reference](/api-reference/authentication) | Full REST API documentation |
+| [CLI Reference](/cli) | Command-line tool for local and CI usage |
+| [GitHub Action](/github-action) | Integrate PreShip into your GitHub workflows |
+| [SDKs](/sdks) | Code examples in JavaScript, Python, and more |
+| [Guides](/guides/vercel-integration) | Step-by-step integration tutorials |
+
+---
+
+## How It Works
+
+1. **Submit a URL** -- Send a URL to the PreShip API via REST, CLI, or GitHub Action
+2. **Automated Scanning** -- PreShip runs accessibility, performance, and security checks against your page
+3. **Get Results** -- Receive a detailed report with scores, issues, and recommendations
+4. **Track Progress** -- Create projects to monitor scores over time and catch regressions
+
+---
+
+## Base URL
+
+All API requests use the following base URL:
+
+```
+https://api.preship.dev
+```
+
+The API follows REST conventions, returns JSON responses, and uses standard HTTP status codes.
+
+---
+
+## Support
+
+- **GitHub Issues**: [github.com/preship/preship/issues](https://github.com/preship/preship/issues)
+- **Email**: support@preship.dev
+- **Status Page**: [status.preship.dev](https://status.preship.dev)

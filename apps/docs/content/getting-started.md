@@ -1,0 +1,80 @@
+---
+title: Getting Started
+description: Create your PreShip account, get your API key, and run your first accessibility scan in under 5 minutes.
+---
+
+# Getting Started
+
+Get up and running with PreShip in under 5 minutes. This guide walks you through creating an account, obtaining your API key, and running your first accessibility scan.
+
+## 1. Create an Account
+
+Sign up for a free PreShip account at [app.preship.dev/signup](https://app.preship.dev/signup). The free plan includes 50 scans per month with full accessibility scanning.
+
+## 2. Get Your API Key
+
+After signing in, navigate to **Settings > API Keys** in the dashboard. Click **Create API Key** and give it a descriptive name.
+
+Copy the key immediately -- it will only be shown once. Your API key looks like this:
+
+```
+sk_live_YOUR_API_KEY_HERE
+```
+
+> **Keep your API key secret.** Do not commit it to version control. Use environment variables to store it in CI/CD pipelines.
+
+## 3. Your First Scan
+
+```bash
+curl -X POST https://api.preship.dev/api/v1/scans \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: sk_live_your_api_key_here" \
+  -d '{
+    "url": "https://example.com",
+    "checks": ["accessibility", "performance"]
+  }'
+```
+
+Response:
+
+```json
+{
+  "success": true,
+  "data": {
+    "scanId": "scan_8f3k2j1m5n7p",
+    "status": "pending",
+    "url": "https://example.com",
+    "checks": ["accessibility", "performance"],
+    "createdAt": "2025-01-15T10:30:00.000Z"
+  }
+}
+```
+
+## 4. Get Scan Results
+
+Poll the scan status until it completes:
+
+```bash
+curl https://api.preship.dev/api/v1/scans/scan_8f3k2j1m5n7p \
+  -H "X-API-Key: sk_live_your_api_key_here"
+```
+
+## 5. Understanding Results
+
+### Scores
+
+| Score Range | Rating |
+|-------------|--------|
+| 90-100 | Excellent |
+| 70-89 | Good -- minor issues to address |
+| 50-69 | Needs Improvement |
+| 0-49 | Poor -- critical issues require attention |
+
+### Issue Severity
+
+| Level | Description |
+|-------|-------------|
+| **critical** | Blocks users from accessing content entirely |
+| **serious** | Significantly impacts usability for some users |
+| **moderate** | Causes difficulty but content is still accessible |
+| **minor** | Minor inconvenience, low user impact |

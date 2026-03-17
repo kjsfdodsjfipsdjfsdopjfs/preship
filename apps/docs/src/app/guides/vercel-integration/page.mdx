@@ -1,0 +1,144 @@
+# Integrating PreShip with Vercel
+
+This guide shows you how to automatically scan your Vercel preview deployments for accessibility issues before merging to production.
+
+---
+
+## Overview
+
+Vercel provides a preview URL for every push to a pull request. By combining Vercel's deployment events with the PreShip GitHub Action, you can scan every preview deployment and block merges that introduce accessibility regressions.
+
+---
+
+## Prerequisites
+
+- A Vercel project connected to a GitHub repository
+- A PreShip account with an API key
+- GitHub repository admin access (to add secrets)
+
+---
+
+## Step 1: Add Your API Key to GitHub Secrets
+
+1. Go to your GitHub repository **Settings > Secrets and variables > Actions**
+2. Click **New repository secret**
+3. Name: `PRESHIP_API_KEY`
+4. Value: Your PreShip API key
+5. Click **Add secret**
+
+---
+
+## Step 2: Create the Workflow
+
+Create `.github/workflows/preship.yml` in your repository:
+
+```yaml
+name: PreShip Accessibility Scan
+
+on:
+  deployment_status:
+
+jobs:
+  scan:
+    # Only run when a Vercel deployment succeeds
+    if: >
+      github.event.deployment_status.state == 'success' &&
+      contains(github.event.deployment_status.target_url, 'vercel.app')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Run PreShip
+        uses: preship/scan-action@v1
+        with:
+          url: ${{ github.event.deployment_status.target_url }}
+          api-key: ${{ secrets.PRESHIP_API_KEY }}
+          checks: "accessibility,performance"
+          threshold: "accessibility:90,performance:80"
+          comment: "true"
+```
+
+---
+
+## Step 3: Configure Thresholds (Optional)
+
+To enforce strict accessibility standards, create a PreShip project and set thresholds:
+
+```bash
+curl -X POST https://api.preship.dev/api/v1/projects \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: sk_live_your_api_key_here" \
+  -d '{
+    "name": "My Vercel App",
+    "url": "https://my-app.vercel.app",
+    "checks": ["accessibility", "performance"],
+    "thresholds": {
+      "accessibility": 90,
+      "performance": 80
+    }
+  }'
+```
+
+Then reference the project ID in your workflow:
+
+```yaml
+- uses: preship/scan-action@v1
+  with:
+    url: ${{ github.event.deployment_status.target_url }}
+    api-key: ${{ secrets.PRESHIP_API_KEY }}
+    project-id: "proj_abc123"
+```
+
+---
+
+## Step 4: Require Status Checks
+
+To block merges when scans fail:
+
+1. Go to **Settings > Branches > Branch protection rules**
+2. Select your main branch
+3. Enable **Require status checks to pass before merging**
+4. Add **PreShip Accessibility Scan** to the required checks
+
+Now pull requests cannot be merged if the accessibility score falls below your threshold.
+
+---
+
+## How It Works
+
+1. Developer pushes code to a pull request
+2. Vercel automatically creates a preview deployment
+3. Vercel fires a `deployment_status` event when the preview is ready
+4. The GitHub Action triggers and sends the preview URL to PreShip
+5. PreShip scans the preview deployment
+6. Results are posted as a PR comment and the check status is updated
+7. If scores are below thresholds, the merge is blocked
+
+---
+
+## Scanning Multiple Pages
+
+If your Vercel app has multiple important pages, increase the `pages` input:
+
+```yaml
+- uses: preship/scan-action@v1
+  with:
+    url: ${{ github.event.deployment_status.target_url }}
+    api-key: ${{ secrets.PRESHIP_API_KEY }}
+    checks: "accessibility"
+    pages: "10"
+    threshold: "accessibility:90"
+```
+
+PreShip will crawl up to 10 pages starting from the provided URL and scan each one.
+
+---
+
+## Troubleshooting
+
+**Workflow does not trigger:**
+Make sure the workflow file is on your default branch (usually `main`). The `deployment_status` event only triggers workflows from the default branch.
+
+**Vercel preview not ready:**
+The workflow waits for `deployment_status.state == 'success'`, so it should only run after the preview is fully deployed. If you still get errors, increase the `timeout` input.
+
+**Scan fails with "URL unreachable":**
+Check that your Vercel preview is not behind authentication (e.g., Vercel Authentication). If it is, you may need to disable it for preview deployments or add bypass headers.

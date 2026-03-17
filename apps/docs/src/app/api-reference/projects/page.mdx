@@ -1,0 +1,478 @@
+# Projects API
+
+Projects let you organize scans, track score trends over time, and configure scheduled scanning. Each project is tied to a URL and stores its scan history.
+
+---
+
+## Create a Project
+
+<span className="method-post">POST</span> `/api/v1/projects`
+
+Creates a new project to track scans for a given URL.
+
+### Request Body
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `name` | string | Yes | Project display name (e.g., "Marketing Site") |
+| `url` | string | Yes | The base URL to monitor |
+| `checks` | string[] | No | Default check types for scans. Default: `["accessibility"]` |
+| `schedule` | string | No | Cron expression for automated scanning (e.g., `"0 9 * * 1"` for every Monday at 9 AM). Requires Pro plan or higher. |
+| `thresholds` | object | No | Minimum score thresholds. Scans below these scores are flagged. |
+| `notifications` | object | No | Notification preferences for scan results. |
+
+### Response
+
+```json
+{
+  "success": true,
+  "data": {
+    "projectId": "proj_abc123",
+    "name": "Marketing Site",
+    "url": "https://example.com",
+    "checks": ["accessibility", "performance"],
+    "schedule": "0 9 * * 1",
+    "thresholds": {
+      "accessibility": 90,
+      "performance": 80
+    },
+    "notifications": {
+      "email": true,
+      "webhook": null
+    },
+    "createdAt": "2025-01-15T10:00:00.000Z",
+    "updatedAt": "2025-01-15T10:00:00.000Z"
+  }
+}
+```
+
+### curl
+
+```bash
+curl -X POST https://api.preship.dev/api/v1/projects \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: sk_live_your_api_key_here" \
+  -d '{
+    "name": "Marketing Site",
+    "url": "https://example.com",
+    "checks": ["accessibility", "performance"],
+    "schedule": "0 9 * * 1",
+    "thresholds": {
+      "accessibility": 90,
+      "performance": 80
+    }
+  }'
+```
+
+### JavaScript
+
+```javascript
+const response = await fetch("https://api.preship.dev/api/v1/projects", {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json",
+    "X-API-Key": process.env.PRESHIP_API_KEY,
+  },
+  body: JSON.stringify({
+    name: "Marketing Site",
+    url: "https://example.com",
+    checks: ["accessibility", "performance"],
+    schedule: "0 9 * * 1",
+    thresholds: {
+      accessibility: 90,
+      performance: 80,
+    },
+  }),
+});
+
+const { data } = await response.json();
+console.log(`Project created: ${data.projectId}`);
+```
+
+### Python
+
+```python
+import requests
+
+response = requests.post(
+    "https://api.preship.dev/api/v1/projects",
+    headers={
+        "Content-Type": "application/json",
+        "X-API-Key": "sk_live_your_api_key_here",
+    },
+    json={
+        "name": "Marketing Site",
+        "url": "https://example.com",
+        "checks": ["accessibility", "performance"],
+        "schedule": "0 9 * * 1",
+        "thresholds": {
+            "accessibility": 90,
+            "performance": 80,
+        },
+    },
+)
+
+data = response.json()["data"]
+print(f"Project created: {data['projectId']}")
+```
+
+---
+
+## List Projects
+
+<span className="method-get">GET</span> `/api/v1/projects`
+
+Returns all projects in your account.
+
+### Query Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `page` | number | `1` | Page number |
+| `limit` | number | `20` | Items per page (max 100) |
+
+### Response
+
+```json
+{
+  "success": true,
+  "data": {
+    "items": [
+      {
+        "projectId": "proj_abc123",
+        "name": "Marketing Site",
+        "url": "https://example.com",
+        "checks": ["accessibility", "performance"],
+        "schedule": "0 9 * * 1",
+        "latestScan": {
+          "scanId": "scan_xyz789",
+          "status": "completed",
+          "scores": { "accessibility": 92, "performance": 88 },
+          "completedAt": "2025-01-13T09:00:45.000Z"
+        },
+        "createdAt": "2025-01-01T00:00:00.000Z"
+      }
+    ],
+    "pagination": {
+      "page": 1,
+      "limit": 20,
+      "totalItems": 3,
+      "totalPages": 1,
+      "hasMore": false
+    }
+  }
+}
+```
+
+### curl
+
+```bash
+curl "https://api.preship.dev/api/v1/projects?page=1&limit=20" \
+  -H "X-API-Key: sk_live_your_api_key_here"
+```
+
+### JavaScript
+
+```javascript
+const response = await fetch("https://api.preship.dev/api/v1/projects", {
+  headers: { "X-API-Key": process.env.PRESHIP_API_KEY },
+});
+
+const { data } = await response.json();
+data.items.forEach((project) => {
+  const score = project.latestScan?.scores?.accessibility ?? "N/A";
+  console.log(`${project.name}: ${score}`);
+});
+```
+
+### Python
+
+```python
+import requests
+
+response = requests.get(
+    "https://api.preship.dev/api/v1/projects",
+    headers={"X-API-Key": "sk_live_your_api_key_here"},
+)
+
+data = response.json()["data"]
+for project in data["items"]:
+    score = project.get("latestScan", {}).get("scores", {}).get("accessibility", "N/A")
+    print(f"{project['name']}: {score}")
+```
+
+---
+
+## Get a Project
+
+<span className="method-get">GET</span> `/api/v1/projects/:id`
+
+Retrieves a single project by ID, including its configuration and latest scan results.
+
+### Path Parameters
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `id` | string | The project ID (e.g., `proj_abc123`) |
+
+### curl
+
+```bash
+curl https://api.preship.dev/api/v1/projects/proj_abc123 \
+  -H "X-API-Key: sk_live_your_api_key_here"
+```
+
+### JavaScript
+
+```javascript
+const response = await fetch(
+  "https://api.preship.dev/api/v1/projects/proj_abc123",
+  { headers: { "X-API-Key": process.env.PRESHIP_API_KEY } }
+);
+
+const { data } = await response.json();
+console.log(`${data.name} - ${data.url}`);
+```
+
+### Python
+
+```python
+import requests
+
+response = requests.get(
+    "https://api.preship.dev/api/v1/projects/proj_abc123",
+    headers={"X-API-Key": "sk_live_your_api_key_here"},
+)
+
+data = response.json()["data"]
+print(f"{data['name']} - {data['url']}")
+```
+
+---
+
+## Get Project History
+
+<span className="method-get">GET</span> `/api/v1/projects/:id/history`
+
+Returns the scan history for a project, showing score trends over time.
+
+### Path Parameters
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `id` | string | The project ID |
+
+### Query Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `page` | number | `1` | Page number |
+| `limit` | number | `20` | Items per page (max 100) |
+| `from` | string | -- | Start date (ISO 8601) |
+| `to` | string | -- | End date (ISO 8601) |
+
+### Response
+
+```json
+{
+  "success": true,
+  "data": {
+    "projectId": "proj_abc123",
+    "items": [
+      {
+        "scanId": "scan_xyz789",
+        "status": "completed",
+        "scores": { "accessibility": 92, "performance": 88 },
+        "summary": { "totalIssues": 3, "critical": 0, "serious": 1, "moderate": 1, "minor": 1 },
+        "completedAt": "2025-01-13T09:00:45.000Z"
+      },
+      {
+        "scanId": "scan_def456",
+        "status": "completed",
+        "scores": { "accessibility": 87, "performance": 85 },
+        "summary": { "totalIssues": 5, "critical": 1, "serious": 2, "moderate": 1, "minor": 1 },
+        "completedAt": "2025-01-06T09:00:38.000Z"
+      }
+    ],
+    "pagination": {
+      "page": 1,
+      "limit": 20,
+      "totalItems": 12,
+      "totalPages": 1,
+      "hasMore": false
+    }
+  }
+}
+```
+
+### curl
+
+```bash
+curl "https://api.preship.dev/api/v1/projects/proj_abc123/history?limit=10" \
+  -H "X-API-Key: sk_live_your_api_key_here"
+```
+
+### JavaScript
+
+```javascript
+const response = await fetch(
+  "https://api.preship.dev/api/v1/projects/proj_abc123/history?limit=10",
+  { headers: { "X-API-Key": process.env.PRESHIP_API_KEY } }
+);
+
+const { data } = await response.json();
+data.items.forEach((scan) => {
+  console.log(
+    `${scan.completedAt}: accessibility=${scan.scores.accessibility}`
+  );
+});
+```
+
+### Python
+
+```python
+import requests
+
+response = requests.get(
+    "https://api.preship.dev/api/v1/projects/proj_abc123/history",
+    headers={"X-API-Key": "sk_live_your_api_key_here"},
+    params={"limit": 10},
+)
+
+data = response.json()["data"]
+for scan in data["items"]:
+    print(f"{scan['completedAt']}: accessibility={scan['scores']['accessibility']}")
+```
+
+---
+
+## Update a Project
+
+<span className="method-patch">PATCH</span> `/api/v1/projects/:id`
+
+Updates a project's configuration. Only the fields you include in the request body will be changed.
+
+### Request Body
+
+All fields are optional. Only include fields you want to update.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `name` | string | Updated project name |
+| `checks` | string[] | Updated default check types |
+| `schedule` | string \| null | Updated cron schedule. Set to `null` to disable scheduled scanning. |
+| `thresholds` | object | Updated score thresholds |
+| `notifications` | object | Updated notification preferences |
+
+### curl
+
+```bash
+curl -X PATCH https://api.preship.dev/api/v1/projects/proj_abc123 \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: sk_live_your_api_key_here" \
+  -d '{
+    "name": "Marketing Site (Production)",
+    "thresholds": {
+      "accessibility": 95
+    }
+  }'
+```
+
+### JavaScript
+
+```javascript
+const response = await fetch(
+  "https://api.preship.dev/api/v1/projects/proj_abc123",
+  {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+      "X-API-Key": process.env.PRESHIP_API_KEY,
+    },
+    body: JSON.stringify({
+      name: "Marketing Site (Production)",
+      thresholds: { accessibility: 95 },
+    }),
+  }
+);
+
+const { data } = await response.json();
+console.log(`Updated: ${data.name}`);
+```
+
+### Python
+
+```python
+import requests
+
+response = requests.patch(
+    "https://api.preship.dev/api/v1/projects/proj_abc123",
+    headers={
+        "Content-Type": "application/json",
+        "X-API-Key": "sk_live_your_api_key_here",
+    },
+    json={
+        "name": "Marketing Site (Production)",
+        "thresholds": {"accessibility": 95},
+    },
+)
+
+data = response.json()["data"]
+print(f"Updated: {data['name']}")
+```
+
+---
+
+## Delete a Project
+
+<span className="method-delete">DELETE</span> `/api/v1/projects/:id`
+
+Permanently deletes a project and all its associated scan history. This action cannot be undone.
+
+### curl
+
+```bash
+curl -X DELETE https://api.preship.dev/api/v1/projects/proj_abc123 \
+  -H "X-API-Key: sk_live_your_api_key_here"
+```
+
+### Response
+
+```json
+{
+  "success": true,
+  "data": {
+    "deleted": true,
+    "projectId": "proj_abc123"
+  }
+}
+```
+
+### JavaScript
+
+```javascript
+const response = await fetch(
+  "https://api.preship.dev/api/v1/projects/proj_abc123",
+  {
+    method: "DELETE",
+    headers: { "X-API-Key": process.env.PRESHIP_API_KEY },
+  }
+);
+
+const { data } = await response.json();
+console.log(`Deleted: ${data.projectId}`);
+```
+
+### Python
+
+```python
+import requests
+
+response = requests.delete(
+    "https://api.preship.dev/api/v1/projects/proj_abc123",
+    headers={"X-API-Key": "sk_live_your_api_key_here"},
+)
+
+data = response.json()["data"]
+print(f"Deleted: {data['projectId']}")
+```

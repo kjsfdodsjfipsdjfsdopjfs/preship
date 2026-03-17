@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="200" height="36" viewBox="0 0 200 36" fill="none">
+  <!-- Background -->
+  <rect x="0.5" y="0.5" width="199" height="35" rx="7.5" fill="#1A1A1A" stroke="#262626"/>
+
+  <!-- Ship icon (scaled down) -->
+  <g transform="translate(8, 4) scale(0.44)">
+    <path d="M18 36 L28 28 L36 8 L36 40 Z" fill="#F97316"/>
+    <path d="M36 16 L46 40 L36 40 Z" fill="#F97316" opacity="0.55"/>
+    <path d="M12 44 L52 44 L46 54 L18 54 Z" fill="#F97316"/>
+    <path d="M14 48 L50 48" stroke="#EA580C" stroke-width="1.5" stroke-linecap="round"/>
+  </g>
+
+  <!-- "PreShip Score" text -->
+  <text x="38" y="22.5" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="600" fill="#FFFFFF">PreShip Score</text>
+
+  <!-- Score circle -->
+  <circle cx="160" cy="18" r="13" fill="#22C55E"/>
+  <text x="160" y="22.5" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="700" fill="#FFFFFF" text-anchor="middle">92</text>
+
+  <!-- "/100" muted text -->
+  <text x="177" y="22.5" font-family="system-ui, -apple-system, sans-serif" font-size="10" font-weight="500" fill="#737373">/100</text>
+</svg>

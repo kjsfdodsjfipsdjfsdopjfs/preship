@@ -1,0 +1,34 @@
+name: "PreShip Accessibility Scan"
+description: "Run PreShip accessibility, security, and performance scans on your deployed app"
+inputs:
+  url:
+    description: "URL to scan"
+    required: true
+  api-key:
+    description: "PreShip API key"
+    required: false
+  categories:
+    description: "Categories to scan (comma-separated: accessibility,security,performance)"
+    required: false
+    default: "accessibility,security,performance"
+  max-pages:
+    description: "Maximum number of pages to crawl"
+    required: false
+    default: "5"
+  fail-on-critical:
+    description: "Fail the action if critical issues are found"
+    required: false
+    default: "true"
+outputs:
+  score:
+    description: "Overall scan score (0-100)"
+  violations:
+    description: "Number of violations found"
+  report-url:
+    description: "URL to the full report on PreShip"
+runs:
+  using: "node20"
+  main: "dist/index.js"
+branding:
+  icon: "check-circle"
+  color: "green"

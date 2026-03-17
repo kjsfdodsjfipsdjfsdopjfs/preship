@@ -1,0 +1,17 @@
+:root {
+  --preship-orange: #F97316;
+  --preship-orange-light: #FB923C;
+  --preship-orange-dark: #EA580C;
+  --preship-bg-dark: #0A0A0A;
+  --preship-bg-surface: #141414;
+  --preship-bg-card: #1A1A1A;
+  --preship-text-primary: #FFFFFF;
+  --preship-text-secondary: #A3A3A3;
+  --preship-text-muted: #737373;
+  --preship-success: #22C55E;
+  --preship-warning: #EAB308;
+  --preship-error: #EF4444;
+  --preship-info: #3B82F6;
+  --preship-border: #262626;
+  --preship-border-hover: #404040;
+}

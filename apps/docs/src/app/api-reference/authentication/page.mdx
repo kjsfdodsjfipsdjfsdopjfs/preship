@@ -1,0 +1,138 @@
+# Authentication
+
+All API requests to PreShip require authentication. The API supports two authentication methods: API keys and Bearer tokens (JWT).
+
+---
+
+## API Key Authentication
+
+API keys are the recommended way to authenticate with the PreShip API. Pass your API key in the `X-API-Key` header with every request.
+
+```bash
+curl https://api.preship.dev/api/v1/scans \
+  -H "X-API-Key: sk_live_your_api_key_here"
+```
+
+### Key Prefixes
+
+| Prefix | Environment |
+|--------|-------------|
+| `sk_live_` | Production -- full access, counts against billing |
+| `sk_test_` | Test -- limited functionality, does not count against billing |
+
+### Managing API Keys
+
+You can create, rotate, and revoke API keys from the dashboard at **Settings > API Keys**. Each key can be given a name and optional expiration date.
+
+---
+
+## Bearer Token Authentication (JWT)
+
+For frontend applications and OAuth flows, you can authenticate using a JWT Bearer token obtained through the login endpoint.
+
+```bash
+curl https://api.preship.dev/api/v1/scans \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIs..."
+```
+
+### Obtaining a Token
+
+```bash
+curl -X POST https://api.preship.dev/api/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "you@example.com",
+    "password": "your_password"
+  }'
+```
+
+Response:
+
+```json
+{
+  "success": true,
+  "data": {
+    "token": "eyJhbGciOiJIUzI1NiIs...",
+    "expiresAt": "2025-01-16T10:30:00.000Z",
+    "user": {
+      "id": "usr_abc123",
+      "email": "you@example.com",
+      "plan": "pro"
+    }
+  }
+}
+```
+
+JWT tokens expire after 24 hours. Use the refresh endpoint to obtain a new token before expiry.
+
+---
+
+## Example Headers
+
+### Using API Key (recommended for server-side)
+
+```bash
+curl https://api.preship.dev/api/v1/scans \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: sk_live_EXAMPLE_KEY"
+```
+
+### Using Bearer Token (recommended for client-side)
+
+```bash
+curl https://api.preship.dev/api/v1/scans \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIs..."
+```
+
+---
+
+## JavaScript Example
+
+```javascript
+// Using API Key
+const response = await fetch("https://api.preship.dev/api/v1/scans", {
+  headers: {
+    "Content-Type": "application/json",
+    "X-API-Key": process.env.PRESHIP_API_KEY,
+  },
+});
+
+// Using Bearer Token
+const response = await fetch("https://api.preship.dev/api/v1/scans", {
+  headers: {
+    "Content-Type": "application/json",
+    Authorization: `Bearer ${token}`,
+  },
+});
+```
+
+## Python Example
+
+```python
+import requests
+
+# Using API Key
+headers = {
+    "Content-Type": "application/json",
+    "X-API-Key": os.environ["PRESHIP_API_KEY"],
+}
+response = requests.get("https://api.preship.dev/api/v1/scans", headers=headers)
+
+# Using Bearer Token
+headers = {
+    "Content-Type": "application/json",
+    "Authorization": f"Bearer {token}",
+}
+response = requests.get("https://api.preship.dev/api/v1/scans", headers=headers)
+```
+
+---
+
+## Security Best Practices
+
+- **Never expose API keys in client-side code** -- use a backend proxy or Bearer tokens
+- **Rotate keys regularly** -- create new keys and revoke old ones periodically
+- **Use environment variables** -- never hardcode keys in source files
+- **Limit key scope** -- use test keys (`sk_test_`) during development
+- **Revoke compromised keys immediately** -- do this from the dashboard under Settings > API Keys

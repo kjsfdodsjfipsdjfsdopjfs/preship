@@ -1,0 +1,100 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-white text-slate-900 antialiased;
+  }
+}
+
+@layer components {
+  .sidebar-link {
+    @apply block px-3 py-1.5 text-sm text-slate-600 rounded-md transition-colors hover:text-slate-900 hover:bg-slate-100;
+  }
+
+  .sidebar-link-active {
+    @apply bg-brand-50 text-brand-700 font-medium;
+  }
+
+  .sidebar-heading {
+    @apply px-3 py-2 text-xs font-semibold uppercase tracking-wider text-slate-400;
+  }
+}
+
+/* Code blocks */
+pre {
+  @apply bg-slate-950 text-slate-200 rounded-lg p-4 overflow-x-auto text-sm leading-relaxed;
+}
+
+pre code {
+  @apply bg-transparent p-0 text-inherit;
+}
+
+/* Tables */
+.prose table {
+  @apply w-full text-sm;
+}
+
+.prose thead th {
+  @apply bg-slate-50 font-semibold text-left px-4 py-2 border-b-2 border-slate-200;
+}
+
+.prose tbody td {
+  @apply px-4 py-2 border-b border-slate-100;
+}
+
+/* HTTP method badges */
+.method-get {
+  @apply inline-block px-2 py-0.5 text-xs font-bold rounded bg-emerald-100 text-emerald-800;
+}
+
+.method-post {
+  @apply inline-block px-2 py-0.5 text-xs font-bold rounded bg-blue-100 text-blue-800;
+}
+
+.method-patch {
+  @apply inline-block px-2 py-0.5 text-xs font-bold rounded bg-amber-100 text-amber-800;
+}
+
+.method-delete {
+  @apply inline-block px-2 py-0.5 text-xs font-bold rounded bg-red-100 text-red-800;
+}
+
+/* Callout boxes */
+.callout {
+  @apply border-l-4 p-4 my-4 rounded-r-lg text-sm;
+}
+
+.callout-info {
+  @apply bg-blue-50 border-blue-400 text-blue-800;
+}
+
+.callout-warning {
+  @apply bg-amber-50 border-amber-400 text-amber-800;
+}
+
+.callout-tip {
+  @apply bg-emerald-50 border-emerald-400 text-emerald-800;
+}
+
+/* Tab-like code switcher */
+.code-tabs {
+  @apply border border-slate-200 rounded-lg overflow-hidden my-4;
+}
+
+.code-tabs-header {
+  @apply flex bg-slate-100 border-b border-slate-200;
+}
+
+.code-tabs-header button {
+  @apply px-4 py-2 text-sm font-medium text-slate-600 hover:text-slate-900 border-b-2 border-transparent;
+}
+
+.code-tabs-header button.active {
+  @apply text-brand-700 border-brand-600 bg-white;
+}

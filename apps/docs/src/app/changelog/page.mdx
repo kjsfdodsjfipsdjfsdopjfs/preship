@@ -1,0 +1,59 @@
+# Changelog
+
+All notable changes to the PreShip platform, API, CLI, and GitHub Action.
+
+---
+
+## v1.0.0 -- 2025-01-15
+
+**Initial Release**
+
+### Platform
+- Accessibility scanning powered by axe-core with WCAG 2.1 AA compliance checks
+- Performance audits using Lighthouse (FCP, LCP, CLS, TBT, Speed Index)
+- Security header analysis and mixed-content detection
+- SEO checks for metadata, headings, and structured data
+- Multi-page crawling (up to 50 pages per scan)
+- Project management with score tracking and scan history
+- Scheduled scanning with cron-based configuration
+- Dashboard with score trends, issue breakdowns, and detailed reports
+
+### REST API
+- `POST /api/v1/scans` -- Create scans with configurable check types
+- `GET /api/v1/scans/:id` -- Retrieve scan results with detailed issue data
+- `GET /api/v1/scans` -- List scans with filtering and pagination
+- `POST /api/v1/projects` -- Create projects for ongoing monitoring
+- `GET /api/v1/projects` -- List projects
+- `GET /api/v1/projects/:id` -- Get project details
+- `GET /api/v1/projects/:id/history` -- View project scan history
+- `PATCH /api/v1/projects/:id` -- Update project configuration
+- `DELETE /api/v1/projects/:id` -- Delete a project
+- `GET /api/v1/billing/usage` -- View current usage
+- `GET /api/v1/billing/plan` -- View plan details
+- API key authentication (`X-API-Key` header)
+- JWT Bearer token authentication
+- Rate limiting with standard headers
+- Structured error responses with error codes
+
+### CLI (`@preship/cli` v1.0.0)
+- `preship scan` -- Run scans from the terminal with formatted output
+- `preship login` -- Authenticate via browser or API key
+- `preship config` -- View and update CLI configuration
+- `preship report` -- Generate HTML reports from scan results
+- `preship projects` -- Manage projects from the command line
+- Output formats: table, JSON, markdown, JUnit XML
+- Threshold-based exit codes for CI/CD integration
+- Environment variable support (`PRESHIP_API_KEY`)
+
+### GitHub Action (`preship/scan-action` v1)
+- Scan any URL from a GitHub Actions workflow
+- Configurable checks, pages, and thresholds
+- Automatic PR comments with scan results
+- Fail-on-threshold support for branch protection
+- Full output variables for custom workflow logic
+- Support for Vercel, Netlify, and other deployment platforms
+
+### Plans
+- **Free**: 50 scans/month, 5 pages/scan, accessibility checks only
+- **Pro** ($29/month): 500 scans/month, 25 pages/scan, all check types, scheduled scans, webhooks
+- **Enterprise** (custom): Unlimited scans, 50 pages/scan, priority support, 1-year data retention

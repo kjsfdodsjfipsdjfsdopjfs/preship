@@ -1,0 +1,344 @@
+# SDKs and Code Examples
+
+PreShip does not yet have official SDK packages, but the REST API is easy to use from any language. Below are complete, copy-paste-ready examples for JavaScript/TypeScript and Python.
+
+---
+
+## JavaScript / TypeScript
+
+A lightweight wrapper around the PreShip API using `fetch`:
+
+```javascript
+// preship.js -- PreShip API client
+
+const BASE_URL = "https://api.preship.dev";
+
+class PreShip {
+  constructor(apiKey) {
+    this.apiKey = apiKey;
+  }
+
+  async request(method, path, body = null) {
+    const options = {
+      method,
+      headers: {
+        "Content-Type": "application/json",
+        "X-API-Key": this.apiKey,
+      },
+    };
+
+    if (body) {
+      options.body = JSON.stringify(body);
+    }
+
+    const response = await fetch(`${BASE_URL}${path}`, options);
+    const data = await response.json();
+
+    if (!data.success) {
+      const error = new Error(data.error.message);
+      error.code = data.error.code;
+      error.status = response.status;
+      error.details = data.error.details;
+      throw error;
+    }
+
+    return data.data;
+  }
+
+  // Scans
+  async createScan({ url, checks, pages, projectId, waitForResult }) {
+    return this.request("POST", "/api/v1/scans", {
+      url,
+      checks,
+      pages,
+      projectId,
+      waitForResult,
+    });
+  }
+
+  async getScan(scanId) {
+    return this.request("GET", `/api/v1/scans/${scanId}`);
+  }
+
+  async listScans({ projectId, page, limit, sort, order } = {}) {
+    const params = new URLSearchParams();
+    if (projectId) params.set("projectId", projectId);
+    if (page) params.set("page", String(page));
+    if (limit) params.set("limit", String(limit));
+    if (sort) params.set("sort", sort);
+    if (order) params.set("order", order);
+    return this.request("GET", `/api/v1/scans?${params}`);
+  }
+
+  async waitForScan(scanId, { timeout = 120000, interval = 2000 } = {}) {
+    const start = Date.now();
+    while (Date.now() - start < timeout) {
+      const scan = await this.getScan(scanId);
+      if (scan.status === "completed") return scan;
+      if (scan.status === "failed") throw new Error("Scan failed");
+      await new Promise((r) => setTimeout(r, interval));
+    }
+    throw new Error("Scan timed out");
+  }
+
+  // Projects
+  async createProject({ name, url, checks, schedule, thresholds }) {
+    return this.request("POST", "/api/v1/projects", {
+      name,
+      url,
+      checks,
+      schedule,
+      thresholds,
+    });
+  }
+
+  async getProject(projectId) {
+    return this.request("GET", `/api/v1/projects/${projectId}`);
+  }
+
+  async listProjects({ page, limit } = {}) {
+    const params = new URLSearchParams();
+    if (page) params.set("page", String(page));
+    if (limit) params.set("limit", String(limit));
+    return this.request("GET", `/api/v1/projects?${params}`);
+  }
+
+  async getProjectHistory(projectId, { page, limit } = {}) {
+    const params = new URLSearchParams();
+    if (page) params.set("page", String(page));
+    if (limit) params.set("limit", String(limit));
+    return this.request("GET", `/api/v1/projects/${projectId}/history?${params}`);
+  }
+
+  async updateProject(projectId, updates) {
+    return this.request("PATCH", `/api/v1/projects/${projectId}`, updates);
+  }
+
+  async deleteProject(projectId) {
+    return this.request("DELETE", `/api/v1/projects/${projectId}`);
+  }
+
+  // Billing
+  async getUsage() {
+    return this.request("GET", "/api/v1/billing/usage");
+  }
+
+  async getPlan() {
+    return this.request("GET", "/api/v1/billing/plan");
+  }
+}
+
+export default PreShip;
+```
+
+### Usage
+
+```javascript
+import PreShip from "./preship.js";
+
+const client = new PreShip(process.env.PRESHIP_API_KEY);
+
+// Create and wait for a scan
+const { scanId } = await client.createScan({
+  url: "https://example.com",
+  checks: ["accessibility", "performance"],
+});
+
+const result = await client.waitForScan(scanId);
+console.log(`Accessibility: ${result.scores.accessibility}/100`);
+console.log(`Issues: ${result.summary.totalIssues}`);
+
+// List all projects
+const projects = await client.listProjects();
+projects.items.forEach((p) => console.log(`${p.name}: ${p.url}`));
+
+// Check usage
+const usage = await client.getUsage();
+console.log(`Scans remaining: ${usage.scans.remaining}`);
+```
+
+---
+
+## Python
+
+A lightweight wrapper using the `requests` library:
+
+```python
+# preship.py -- PreShip API client
+
+import os
+import time
+import requests
+
+BASE_URL = "https://api.preship.dev"
+
+
+class PreShipError(Exception):
+    def __init__(self, message, code=None, status=None, details=None):
+        super().__init__(message)
+        self.code = code
+        self.status = status
+        self.details = details
+
+
+class PreShip:
+    def __init__(self, api_key=None):
+        self.api_key = api_key or os.environ.get("PRESHIP_API_KEY")
+        if not self.api_key:
+            raise ValueError("API key is required")
+
+    def _request(self, method, path, json=None, params=None):
+        response = requests.request(
+            method,
+            f"{BASE_URL}{path}",
+            headers={
+                "Content-Type": "application/json",
+                "X-API-Key": self.api_key,
+            },
+            json=json,
+            params=params,
+        )
+
+        data = response.json()
+        if not data["success"]:
+            error = data["error"]
+            raise PreShipError(
+                error["message"],
+                code=error.get("code"),
+                status=response.status_code,
+                details=error.get("details"),
+            )
+
+        return data["data"]
+
+    # Scans
+    def create_scan(self, url, checks=None, pages=None, project_id=None, wait_for_result=False):
+        body = {"url": url}
+        if checks:
+            body["checks"] = checks
+        if pages:
+            body["pages"] = pages
+        if project_id:
+            body["projectId"] = project_id
+        if wait_for_result:
+            body["waitForResult"] = True
+        return self._request("POST", "/api/v1/scans", json=body)
+
+    def get_scan(self, scan_id):
+        return self._request("GET", f"/api/v1/scans/{scan_id}")
+
+    def list_scans(self, project_id=None, page=1, limit=20, sort="createdAt", order="desc"):
+        params = {"page": page, "limit": limit, "sort": sort, "order": order}
+        if project_id:
+            params["projectId"] = project_id
+        return self._request("GET", "/api/v1/scans", params=params)
+
+    def wait_for_scan(self, scan_id, timeout=120, interval=2):
+        start = time.time()
+        while time.time() - start < timeout:
+            scan = self.get_scan(scan_id)
+            if scan["status"] == "completed":
+                return scan
+            if scan["status"] == "failed":
+                raise PreShipError("Scan failed")
+            time.sleep(interval)
+        raise PreShipError("Scan timed out")
+
+    # Projects
+    def create_project(self, name, url, checks=None, schedule=None, thresholds=None):
+        body = {"name": name, "url": url}
+        if checks:
+            body["checks"] = checks
+        if schedule:
+            body["schedule"] = schedule
+        if thresholds:
+            body["thresholds"] = thresholds
+        return self._request("POST", "/api/v1/projects", json=body)
+
+    def get_project(self, project_id):
+        return self._request("GET", f"/api/v1/projects/{project_id}")
+
+    def list_projects(self, page=1, limit=20):
+        return self._request("GET", "/api/v1/projects", params={"page": page, "limit": limit})
+
+    def get_project_history(self, project_id, page=1, limit=20):
+        return self._request(
+            "GET", f"/api/v1/projects/{project_id}/history",
+            params={"page": page, "limit": limit},
+        )
+
+    def update_project(self, project_id, **updates):
+        return self._request("PATCH", f"/api/v1/projects/{project_id}", json=updates)
+
+    def delete_project(self, project_id):
+        return self._request("DELETE", f"/api/v1/projects/{project_id}")
+
+    # Billing
+    def get_usage(self):
+        return self._request("GET", "/api/v1/billing/usage")
+
+    def get_plan(self):
+        return self._request("GET", "/api/v1/billing/plan")
+```
+
+### Usage
+
+```python
+from preship import PreShip
+
+client = PreShip("sk_live_your_api_key_here")
+
+# Create and wait for a scan
+result = client.create_scan(
+    url="https://example.com",
+    checks=["accessibility", "performance"],
+)
+scan = client.wait_for_scan(result["scanId"])
+
+print(f"Accessibility: {scan['scores']['accessibility']}/100")
+print(f"Issues: {scan['summary']['totalIssues']}")
+
+for issue in scan["issues"]:
+    print(f"  [{issue['impact']}] {issue['description']}")
+
+# List projects
+projects = client.list_projects()
+for project in projects["items"]:
+    print(f"{project['name']}: {project['url']}")
+
+# Check usage
+usage = client.get_usage()
+print(f"Scans remaining: {usage['scans']['remaining']}")
+```
+
+---
+
+## cURL
+
+For quick testing, curl works well. Set your API key as an environment variable:
+
+```bash
+export PRESHIP_API_KEY=sk_live_your_api_key_here
+```
+
+Then use it in requests:
+
+```bash
+# Create a scan
+curl -X POST https://api.preship.dev/api/v1/scans \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: $PRESHIP_API_KEY" \
+  -d '{"url": "https://example.com", "checks": ["accessibility"]}'
+
+# Get results
+curl https://api.preship.dev/api/v1/scans/scan_8f3k2j1m5n7p \
+  -H "X-API-Key: $PRESHIP_API_KEY"
+
+# List projects
+curl https://api.preship.dev/api/v1/projects \
+  -H "X-API-Key: $PRESHIP_API_KEY"
+
+# Check usage
+curl https://api.preship.dev/api/v1/billing/usage \
+  -H "X-API-Key: $PRESHIP_API_KEY"
+```
