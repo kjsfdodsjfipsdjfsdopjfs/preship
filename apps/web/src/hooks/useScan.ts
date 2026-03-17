@@ -33,19 +33,25 @@ export function useScan() {
   const [scan, setScan] = useState<ScanPollResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const pollingRef = useRef(false);
 
   const stopPolling = useCallback(() => {
-    if (intervalRef.current) { clearInterval(intervalRef.current); intervalRef.current = null; }
+    pollingRef.current = false;
+    if (timeoutRef.current) { clearTimeout(timeoutRef.current); timeoutRef.current = null; }
   }, []);
 
   const pollStatus = useCallback((scanId: string) => {
     stopPolling();
+    pollingRef.current = true;
     const poll = async () => {
+      if (!pollingRef.current) return;
       try {
         const result = await apiFetch<ScanPollResult>(`/api/scans/${scanId}`);
+        if (!pollingRef.current) return;
         setScan(result);
         if (result.status === "completed" || result.status === "failed") { stopPolling(); setLoading(false); }
+        else { timeoutRef.current = setTimeout(poll, 3000); }
       } catch (err) {
         setError(err instanceof Error ? err.message : "Polling failed");
         stopPolling();
@@ -53,7 +59,6 @@ export function useScan() {
       }
     };
     poll();
-    intervalRef.current = setInterval(poll, 3000);
   }, [stopPolling]);
 
   const startScan = useCallback(async (url: string): Promise<ScanPollResult> => {

@@ -7,6 +7,13 @@ import CodeBlock from "./CodeBlock";
 
 type Severity = "critical" | "serious" | "moderate" | "minor";
 
+const severityColors: Record<Severity, string> = {
+  critical: "text-red-400",
+  serious: "text-orange-400",
+  moderate: "text-yellow-400",
+  minor: "text-blue-400",
+};
+
 interface Violation {
   id: string;
   title: string;
@@ -26,17 +33,11 @@ interface ViolationCardProps {
 export default function ViolationCard({ violation, className }: ViolationCardProps) {
   const [expanded, setExpanded] = useState(false);
 
-  const severityColors: Record<Severity, string> = {
-    critical: "text-red-400",
-    serious: "text-orange-400",
-    moderate: "text-yellow-400",
-    minor: "text-blue-400",
-  };
-
   return (
     <div className={cn("rounded-lg border border-neutral-800 bg-neutral-900 overflow-hidden transition-all duration-200", expanded && "border-neutral-700", className)}>
       <button
         onClick={() => setExpanded(!expanded)}
+        aria-expanded={expanded}
         className="w-full flex items-center gap-3 p-4 text-left hover:bg-neutral-800 transition-colors"
       >
         <div className={cn("flex-shrink-0", severityColors[violation.severity])}>

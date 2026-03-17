@@ -1,46 +1,9 @@
-"use client";
-
-import { useState, useEffect, useRef } from "react";
 import Navbar from "@/components/Navbar";
 import Button from "@/components/Button";
 import CodeBlock from "@/components/CodeBlock";
 import PricingTable from "@/components/PricingTable";
-
-/* ------------------------------------------------------------------ */
-/* Animated counter hook                                               */
-/* ------------------------------------------------------------------ */
-function useCounter(end: number, duration = 2000) {
-  const [value, setValue] = useState(0);
-  const ref = useRef<HTMLDivElement>(null);
-  const started = useRef(false);
-
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting && !started.current) {
-          started.current = true;
-          const startTime = performance.now();
-          const animate = (now: number) => {
-            const progress = Math.min((now - startTime) / duration, 1);
-            const eased = 1 - Math.pow(1 - progress, 3);
-            setValue(Math.round(eased * end));
-            if (progress < 1) requestAnimationFrame(animate);
-          };
-          requestAnimationFrame(animate);
-        }
-      },
-      { threshold: 0.3 }
-    );
-
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, [end, duration]);
-
-  return { value, ref };
-}
+import HeroScanInput from "@/components/HeroScanInput";
+import AnimatedCounter from "@/components/AnimatedCounter";
 
 /* ------------------------------------------------------------------ */
 /* Feature data                                                        */
@@ -129,13 +92,9 @@ const apiExample = `curl -X POST https://api.preship.dev/v1/scans \\
 }`;
 
 /* ------------------------------------------------------------------ */
-/* Page Component                                                      */
+/* Page Component (Server Component)                                   */
 /* ------------------------------------------------------------------ */
 export default function LandingPage() {
-  const [scanUrl, setScanUrl] = useState("");
-  const violations = useCounter(2847593, 2500);
-  const appsScanned = useCounter(184729, 2500);
-
   return (
     <div className="min-h-screen bg-[#0A0A0A]">
       <a href="#main-content" className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-[60] focus:px-4 focus:py-2 focus:bg-orange-500 focus:text-white focus:rounded-lg focus:text-sm focus:font-medium">
@@ -168,28 +127,7 @@ export default function LandingPage() {
             API-first. Results in seconds.
           </p>
 
-          <div className="mt-10 max-w-xl mx-auto animate-slide-up animate-delay-200">
-            <form onSubmit={(e) => e.preventDefault()} role="search" aria-label="Scan a URL">
-            <label htmlFor="scan-url" className="sr-only">Enter your website URL to scan</label>
-            <div className="flex gap-2 p-1.5 rounded-xl border border-neutral-800 bg-neutral-900">
-              <input
-                id="scan-url"
-                type="url"
-                placeholder="https://your-app.vercel.app"
-                value={scanUrl}
-                onChange={(e) => setScanUrl(e.target.value)}
-                className="flex-1 bg-transparent px-4 py-3 text-sm text-white placeholder:text-neutral-400 focus:outline-none"
-                aria-describedby="scan-help"
-              />
-              <Button size="lg" className="whitespace-nowrap px-6" type="submit">
-                Scan your app free
-              </Button>
-            </div>
-            </form>
-            <p id="scan-help" className="mt-3 text-xs text-neutral-400">
-              No sign-up required for your first scan. Takes ~30 seconds.
-            </p>
-          </div>
+          <HeroScanInput />
 
           <div className="mt-16 flex flex-wrap items-center justify-center gap-8 text-neutral-300 text-sm animate-fade-in animate-delay-300">
             {["WCAG 2.2 AA", "OWASP Top 10", "Core Web Vitals", "ADA Section 508"].map((item) => (
@@ -336,18 +274,8 @@ export default function LandingPage() {
       <section aria-label="Social proof" className="py-20 md:py-28 border-t border-neutral-800 bg-neutral-900/50">
         <div className="max-w-4xl mx-auto px-4 text-center">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-12">
-            <div ref={violations.ref}>
-              <p className="text-5xl md:text-6xl font-bold text-orange-400 tabular-nums">
-                {violations.value.toLocaleString()}
-              </p>
-              <p className="mt-2 text-neutral-300">violations found and reported</p>
-            </div>
-            <div ref={appsScanned.ref}>
-              <p className="text-5xl md:text-6xl font-bold text-white tabular-nums">
-                {appsScanned.value.toLocaleString()}
-              </p>
-              <p className="mt-2 text-neutral-300">apps scanned by developers</p>
-            </div>
+            <AnimatedCounter end={2847593} duration={2500} className="text-orange-400" label="violations found and reported" />
+            <AnimatedCounter end={184729} duration={2500} className="text-white" label="apps scanned by developers" />
           </div>
         </div>
       </section>

@@ -3,7 +3,6 @@
 interface LogoProps {
   size?: 'sm' | 'md' | 'lg';
   variant?: 'full' | 'icon';
-  theme?: 'dark' | 'light';
   className?: string;
 }
 

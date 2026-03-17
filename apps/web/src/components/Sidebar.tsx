@@ -21,11 +21,11 @@ export default function Sidebar() {
     <aside className="w-60 h-screen fixed left-0 top-0 bg-neutral-950 border-r border-neutral-800 flex flex-col z-40">
       <div className="h-16 flex items-center px-5 border-b border-neutral-800">
         <a href="/dashboard" className="flex items-center">
-          <Logo size="sm" variant="full" theme="dark" />
+          <Logo size="sm" variant="full" />
         </a>
       </div>
 
-      <nav className="flex-1 py-4 px-3 space-y-1 overflow-y-auto">
+      <nav aria-label="Dashboard navigation" className="flex-1 py-4 px-3 space-y-1 overflow-y-auto">
         {navItems.map((item) => {
           const isActive = item.href === "/dashboard" ? pathname === "/dashboard" : pathname?.startsWith(item.href);
           return (

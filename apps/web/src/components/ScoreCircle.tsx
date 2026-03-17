@@ -42,8 +42,8 @@ export default function ScoreCircle({ score, size = "md", showLabel = false, cla
   }, [score, animated]);
 
   return (
-    <div className={cn("relative inline-flex flex-col items-center", className)}>
-      <svg width={config.width} height={config.width} className="transform -rotate-90">
+    <div className={cn("relative inline-flex flex-col items-center", className)} role="img" aria-label={`Score: ${score} out of 100, ${getScoreLabel(score)}`}>
+      <svg width={config.width} height={config.width} className="transform -rotate-90" aria-hidden="true">
         <circle cx={config.width / 2} cy={config.width / 2} r={radius} fill="none" stroke="#2A2A2A" strokeWidth={config.stroke} />
         <circle
           cx={config.width / 2} cy={config.width / 2} r={radius} fill="none"

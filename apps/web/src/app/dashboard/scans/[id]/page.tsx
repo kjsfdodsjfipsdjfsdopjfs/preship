@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import Button from "@/components/Button";
 import Badge from "@/components/Badge";
 import ScoreCircle from "@/components/ScoreCircle";
@@ -43,26 +43,34 @@ export default function ScanDetailPage() {
   const [activeTab, setActiveTab] = useState<"all" | "accessibility" | "security" | "performance">("all");
   const [severityFilter, setSeverityFilter] = useState<Severity | "all">("all");
 
-  const filtered = violations
-    .filter((v) => activeTab === "all" || v.category === activeTab)
-    .filter((v) => severityFilter === "all" || v.severity === severityFilter)
-    .sort((a, b) => severityOrder[a.severity] - severityOrder[b.severity]);
+  const { severityCounts, categoryCounts, autoFixable } = useMemo(() => {
+    const severity = { critical: 0, serious: 0, moderate: 0, minor: 0 };
+    const category = { accessibility: 0, security: 0, performance: 0 };
+    const fixable: Violation[] = [];
 
-  const autoFixable = violations.filter((v) => v.autoFixable);
+    for (const v of violations) {
+      severity[v.severity]++;
+      category[v.category]++;
+      if (v.autoFixable) fixable.push(v);
+    }
 
-  const severityCounts = {
-    critical: violations.filter((v) => v.severity === "critical").length,
-    serious: violations.filter((v) => v.severity === "serious").length,
-    moderate: violations.filter((v) => v.severity === "moderate").length,
-    minor: violations.filter((v) => v.severity === "minor").length,
-  };
+    return { severityCounts: severity, categoryCounts: category, autoFixable: fixable };
+  }, []);
 
-  const tabs = [
+  const tabs = useMemo(() => [
     { key: "all", label: "All", count: violations.length },
-    { key: "accessibility", label: "Accessibility", count: violations.filter((v) => v.category === "accessibility").length },
-    { key: "security", label: "Security", count: violations.filter((v) => v.category === "security").length },
-    { key: "performance", label: "Performance", count: violations.filter((v) => v.category === "performance").length },
-  ];
+    { key: "accessibility", label: "Accessibility", count: categoryCounts.accessibility },
+    { key: "security", label: "Security", count: categoryCounts.security },
+    { key: "performance", label: "Performance", count: categoryCounts.performance },
+  ], [categoryCounts]);
+
+  const filtered = useMemo(() =>
+    violations
+      .filter((v) => activeTab === "all" || v.category === activeTab)
+      .filter((v) => severityFilter === "all" || v.severity === severityFilter)
+      .sort((a, b) => severityOrder[a.severity] - severityOrder[b.severity]),
+    [activeTab, severityFilter]
+  );
 
   return (
     <div className="max-w-6xl mx-auto space-y-8">
@@ -95,9 +103,9 @@ export default function ScanDetailPage() {
           <ScoreCircle score={scanData.score} size="lg" showLabel />
         </div>
         {[
-          { label: "Accessibility", score: scanData.accessibility, count: violations.filter(v => v.category === "accessibility").length },
-          { label: "Security", score: scanData.security, count: violations.filter(v => v.category === "security").length },
-          { label: "Performance", score: scanData.performance, count: violations.filter(v => v.category === "performance").length },
+          { label: "Accessibility", score: scanData.accessibility, count: categoryCounts.accessibility },
+          { label: "Security", score: scanData.security, count: categoryCounts.security },
+          { label: "Performance", score: scanData.performance, count: categoryCounts.performance },
         ].map((sub) => (
           <div key={sub.label} className="rounded-xl border border-neutral-800 bg-neutral-900 p-6 flex flex-col items-center justify-center">
             <p className="text-xs text-neutral-500 uppercase tracking-wider mb-3">{sub.label}</p>
