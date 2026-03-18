@@ -5,13 +5,17 @@ import { cn } from "@/lib/utils";
 import Badge from "./Badge";
 import CodeBlock from "./CodeBlock";
 
-type Severity = "critical" | "serious" | "moderate" | "minor";
+type Severity = "critical" | "high" | "serious" | "medium" | "moderate" | "low" | "minor" | "info";
 
-const severityColors: Record<Severity, string> = {
+const severityColors: Record<string, string> = {
   critical: "text-red-400",
+  high: "text-red-400",
   serious: "text-orange-400",
+  medium: "text-yellow-400",
   moderate: "text-yellow-400",
+  low: "text-blue-400",
   minor: "text-blue-400",
+  info: "text-neutral-400",
 };
 
 interface Violation {
