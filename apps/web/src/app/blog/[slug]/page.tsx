@@ -9,6 +9,7 @@ const slugToFile: Record<string, string> = {
   "ada-lawsuits-2025": "02-ada-lawsuits-2025.md",
   "api-first-scanning": "03-api-first-scanning.md",
   "accessibility-checklist": "04-accessibility-checklist.md",
+  "we-scanned-10-dev-tools": "05-we-scanned-10-dev-tools.md",
 };
 
 interface Frontmatter {

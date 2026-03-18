@@ -2,6 +2,14 @@ import Navbar from "@/components/Navbar";
 
 const posts = [
   {
+    slug: "we-scanned-10-dev-tools",
+    title: "We Scanned 10 Popular Dev Tools. Here's What We Found.",
+    excerpt:
+      "Vercel, Supabase, Linear, Railway and more — avg 398 accessibility violations per site. Top eng teams, still failing WCAG.",
+    date: "March 18, 2026",
+    readTime: "4 min read",
+  },
+  {
     slug: "why-vibe-coding-needs-qa",
     title: "Why Your Vibe-Coded App Is Probably Inaccessible",
     excerpt:
