@@ -81,7 +81,7 @@ export async function scan(
 
     // Launch browser with security sandbox disabled for container environments
     browser = await puppeteer.launch({
-      headless: true,
+      headless: "new",
       executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
       args: [
         "--no-sandbox",
@@ -90,16 +90,12 @@ export async function scan(
         "--disable-gpu",
         "--disable-extensions",
         "--disable-background-networking",
-        "--disable-default-apps",
-        "--disable-sync",
-        "--disable-translate",
         "--no-first-run",
-        "--no-zygote",
-        "--single-process",
         "--mute-audio",
         "--hide-scrollbars",
       ],
-      timeout: 30000,
+      timeout: 60000,
+      protocolTimeout: 60000,
     });
 
     // Discover pages to scan
