@@ -37,10 +37,7 @@ export default function SignupPage() {
       localStorage.setItem("auth_token", data.token);
       router.replace("/dashboard");
     } catch {
-      // API not available — enable demo mode
-      localStorage.setItem("auth_token", "demo_token_" + Date.now());
-      router.replace("/dashboard");
-      return;
+      setError("Unable to connect to the server. Please try again later.");
     } finally {
       setLoading(false);
     }

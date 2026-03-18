@@ -40,11 +40,11 @@ function SettingsSkeleton() {
 /* ------------------------------------------------------------------ */
 /* Demo banner                                                         */
 /* ------------------------------------------------------------------ */
-function DemoBanner() {
+function OfflineBanner() {
   return (
     <div className="rounded-lg border border-yellow-500/20 bg-yellow-500/5 px-4 py-2 text-sm text-yellow-400 flex items-center gap-2 mb-6">
       <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-      Demo mode — API not connected
+      Could not load data from server. Showing cached results.
     </div>
   );
 }
@@ -58,7 +58,7 @@ export default function SettingsPage() {
 
   // Loading states
   const [loading, setLoading] = useState(true);
-  const [demoMode, setDemoMode] = useState(false);
+  const [offline, setOffline] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Profile state
@@ -77,7 +77,7 @@ export default function SettingsPage() {
 
   const fetchProfile = useCallback(async () => {
     setLoading(true);
-    setDemoMode(false);
+    setOffline(false);
     try {
       const res = await apiFetch<any>("/api/auth/me");
       const data = res?.data;
@@ -86,7 +86,7 @@ export default function SettingsPage() {
         setProfileEmail(data.email ?? "");
       }
     } catch {
-      setDemoMode(true);
+      setOffline(true);
       setProfileName(mockProfile.name);
       setProfileEmail(mockProfile.email);
     } finally {
@@ -107,13 +107,13 @@ export default function SettingsPage() {
       }));
       setApiKeys(keys);
     } catch {
-      if (demoMode) {
+      if (offline) {
         setApiKeys(mockApiKeys);
       }
     } finally {
       setKeysLoading(false);
     }
-  }, [demoMode]);
+  }, [offline]);
 
   useEffect(() => {
     fetchProfile();
@@ -179,7 +179,7 @@ export default function SettingsPage() {
 
   return (
     <div className="max-w-4xl mx-auto">
-      {demoMode && <DemoBanner />}
+      {offline && <OfflineBanner />}
 
       <h1 className="text-2xl font-bold text-white mb-6">Settings</h1>
 

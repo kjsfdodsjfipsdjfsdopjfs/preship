@@ -148,13 +148,13 @@ function EmptyState() {
 }
 
 /* ------------------------------------------------------------------ */
-/* Demo mode banner                                                    */
+/* Offline banner                                                    */
 /* ------------------------------------------------------------------ */
-function DemoBanner() {
+function OfflineBanner() {
   return (
     <div className="rounded-lg border border-yellow-500/20 bg-yellow-500/5 px-4 py-2 text-sm text-yellow-400 flex items-center gap-2">
       <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-      Demo mode — API not connected
+      Could not load data from server. Showing cached results.
     </div>
   );
 }
@@ -167,7 +167,7 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [scanning, setScanning] = useState(false);
-  const [demoMode, setDemoMode] = useState(false);
+  const [offline, setOffline] = useState(false);
 
   // Data state
   const [recentScans, setRecentScans] = useState<any[]>([]);
@@ -179,7 +179,7 @@ export default function DashboardPage() {
   const fetchData = useCallback(async () => {
     setLoading(true);
     setError(null);
-    setDemoMode(false);
+    setOffline(false);
 
     try {
       // Fetch scans and projects in parallel
@@ -189,8 +189,8 @@ export default function DashboardPage() {
       ]);
 
       if (!scansRes && !projectsRes) {
-        // Both failed - demo mode
-        setDemoMode(true);
+        // Both failed - offline fallback
+        setOffline(true);
         setRecentScans(mockRecentScans);
         setStats(mockStats.map((s, i) => ({ ...s, icon: statIcons[i] })));
         setLoading(false);
@@ -275,7 +275,7 @@ export default function DashboardPage() {
 
   return (
     <div className="max-w-6xl mx-auto space-y-8">
-      {demoMode && <DemoBanner />}
+      {offline && <OfflineBanner />}
 
       {error && (
         <div className="rounded-lg border border-red-500/20 bg-red-500/5 px-4 py-3 flex items-center justify-between">

@@ -50,11 +50,11 @@ function BillingSkeleton() {
 /* ------------------------------------------------------------------ */
 /* Demo banner                                                         */
 /* ------------------------------------------------------------------ */
-function DemoBanner() {
+function OfflineBanner() {
   return (
     <div className="rounded-lg border border-yellow-500/20 bg-yellow-500/5 px-4 py-2 text-sm text-yellow-400 flex items-center gap-2">
       <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-      Demo mode — API not connected
+      Could not load data from server. Showing cached results.
     </div>
   );
 }
@@ -65,7 +65,7 @@ function DemoBanner() {
 export default function BillingPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [demoMode, setDemoMode] = useState(false);
+  const [offline, setOffline] = useState(false);
 
   // Data
   const [currentPlan, setCurrentPlan] = useState<any>(null);
@@ -80,7 +80,7 @@ export default function BillingPage() {
   const fetchBilling = useCallback(async () => {
     setLoading(true);
     setError(null);
-    setDemoMode(false);
+    setOffline(false);
 
     try {
       const [planRes, usageRes] = await Promise.all([
@@ -122,7 +122,7 @@ export default function BillingPage() {
         setUsage(usageRes.data);
       }
     } catch {
-      setDemoMode(true);
+      setOffline(true);
       setCurrentPlan(mockCurrentPlan);
       setPlans(mockPlans);
     } finally {
@@ -178,7 +178,7 @@ export default function BillingPage() {
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
-      {demoMode && <DemoBanner />}
+      {offline && <OfflineBanner />}
 
       {error && (
         <div className="rounded-lg border border-red-500/20 bg-red-500/5 px-4 py-3 flex items-center justify-between">

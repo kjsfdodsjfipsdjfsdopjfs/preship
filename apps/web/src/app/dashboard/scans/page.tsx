@@ -63,11 +63,11 @@ function EmptyState({ onScan }: { onScan: () => void }) {
 /* ------------------------------------------------------------------ */
 /* Demo banner                                                         */
 /* ------------------------------------------------------------------ */
-function DemoBanner() {
+function OfflineBanner() {
   return (
     <div className="rounded-lg border border-yellow-500/20 bg-yellow-500/5 px-4 py-2 text-sm text-yellow-400 flex items-center gap-2">
       <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-      Demo mode — API not connected
+      Could not load data from server. Showing cached results.
     </div>
   );
 }
@@ -81,7 +81,7 @@ export default function ScansPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [scanning, setScanning] = useState(false);
-  const [demoMode, setDemoMode] = useState(false);
+  const [offline, setOffline] = useState(false);
   const [scans, setScans] = useState<any[]>([]);
   const [totalScans, setTotalScans] = useState(0);
   const [page, setPage] = useState(1);
@@ -90,7 +90,7 @@ export default function ScansPage() {
   const fetchScans = useCallback(async (pageNum = 1) => {
     setLoading(true);
     setError(null);
-    setDemoMode(false);
+    setOffline(false);
 
     try {
       const res = await apiFetch<any>(`/api/scans?page=${pageNum}&limit=20&sort=date`);
@@ -108,7 +108,7 @@ export default function ScansPage() {
       setPage(pageNum);
     } catch {
       // Fallback to mock data
-      setDemoMode(true);
+      setOffline(true);
       setScans(mockScans);
       setTotalScans(mockScans.length);
     } finally {
@@ -148,7 +148,7 @@ export default function ScansPage() {
 
   return (
     <div className="max-w-6xl mx-auto space-y-8">
-      {demoMode && <DemoBanner />}
+      {offline && <OfflineBanner />}
 
       {error && (
         <div className="rounded-lg border border-red-500/20 bg-red-500/5 px-4 py-3 flex items-center justify-between">

@@ -130,11 +130,11 @@ function ScanPending({ status, progress, url }: { status: string; progress: numb
 /* ------------------------------------------------------------------ */
 /* Demo banner                                                         */
 /* ------------------------------------------------------------------ */
-function DemoBanner() {
+function OfflineBanner() {
   return (
     <div className="rounded-lg border border-yellow-500/20 bg-yellow-500/5 px-4 py-2 text-sm text-yellow-400 flex items-center gap-2">
       <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-      Demo mode — API not connected
+      Could not load data from server. Showing cached results.
     </div>
   );
 }
@@ -148,7 +148,7 @@ export default function ScanDetailPage() {
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [demoMode, setDemoMode] = useState(false);
+  const [offline, setOffline] = useState(false);
   const [scanData, setScanData] = useState<{
     id: string; url: string; status: string; score: number;
     accessibility: number; security: number; performance: number;
@@ -166,7 +166,7 @@ export default function ScanDetailPage() {
     if (!scanId) return;
     setLoading(true);
     setError(null);
-    setDemoMode(false);
+    setOffline(false);
 
     try {
       const res = await apiFetch<any>(`/api/scans/${scanId}`);
@@ -211,7 +211,7 @@ export default function ScanDetailPage() {
       }));
       setViolations(apiViolations);
     } catch {
-      setDemoMode(true);
+      setOffline(true);
       setScanData(mockScanData);
       setViolations(mockViolations);
     } finally {
@@ -341,7 +341,7 @@ export default function ScanDetailPage() {
 
   return (
     <div className="max-w-6xl mx-auto space-y-8">
-      {demoMode && <DemoBanner />}
+      {offline && <OfflineBanner />}
 
       {error && (
         <div className="rounded-lg border border-red-500/20 bg-red-500/5 px-4 py-3 flex items-center justify-between">

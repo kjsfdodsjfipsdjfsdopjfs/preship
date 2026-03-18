@@ -13,12 +13,8 @@ export default function SocialAuthButtons({ mode }: SocialAuthButtonsProps) {
   const router = useRouter();
 
   function handleOAuth(provider: "google" | "github") {
-    // Try real OAuth endpoint, fallback to demo mode
-    const oauthUrl = `${API_BASE}/api/auth/${provider}`;
-
-    // For now, enable demo mode since OAuth isn't configured yet
-    localStorage.setItem("auth_token", `demo_${provider}_` + Date.now());
-    router.replace("/dashboard");
+    // Redirect to backend OAuth flow
+    window.location.href = `${API_BASE}/api/auth/${provider}`;
   }
 
   return (

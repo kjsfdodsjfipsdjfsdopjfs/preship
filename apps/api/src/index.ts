@@ -18,7 +18,11 @@ const app = express();
 app.use(helmet());
 app.use(
   cors({
-    origin: config.webUrl,
+    origin: [
+      config.webUrl,
+      "https://preship.dev",
+      "http://localhost:3000",
+    ].filter((v, i, a) => a.indexOf(v) === i),
     credentials: true,
   })
 );
