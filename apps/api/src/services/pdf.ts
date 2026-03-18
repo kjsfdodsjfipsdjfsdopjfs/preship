@@ -739,8 +739,8 @@ function buildViolationsSection(
     return;
   }
 
-  // Start a new page for violations
-  doc.addPage();
+  // Only add page if less than 200px remaining
+  ensureSpace(doc, 200);
 
   const catData = getCategoryData(result.categories, category);
   drawSectionHeader(doc, title);
@@ -891,7 +891,7 @@ function buildPerformanceSection(
     return;
   }
 
-  doc.addPage();
+  ensureSpace(doc, 200);
   drawSectionHeader(doc, "Performance Analysis");
 
   // Score line
@@ -1065,8 +1065,8 @@ function buildRecommendationsSection(
     return;
   }
 
-  // Has violations: full recommendations page
-  doc.addPage();
+  // Has violations: recommendations section
+  ensureSpace(doc, 200);
   drawSectionHeader(doc, "Recommendations & Next Steps");
 
   // Top 5 highest-impact fixes
