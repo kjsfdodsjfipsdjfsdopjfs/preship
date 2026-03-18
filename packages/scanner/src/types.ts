@@ -4,6 +4,8 @@ export interface PageScanResult {
   url: string;
   violations: Violation[];
   metrics?: PerformanceMetrics;
+  blocked?: boolean;
+  blockedBy?: "cloudflare" | "vercel" | "generic";
 }
 
 export interface PerformanceMetrics {

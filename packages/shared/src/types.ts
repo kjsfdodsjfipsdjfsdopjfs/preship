@@ -74,6 +74,7 @@ export interface ScanResult {
   violations: Violation[];
   suggestions: FixSuggestion[];
   pagesScanned: number;
+  blockedPages?: number;
   duration: number;
   createdAt: string;
   completedAt?: string;

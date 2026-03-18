@@ -187,6 +187,7 @@ export async function scan(
 
     const allViolations: Violation[] = [];
     let lastMetrics: PerformanceMetrics | undefined;
+    let blockedPages = 0;
     let totalAccessibilityChecks = 0;
     let totalSecurityChecks = 0;
     let totalPerformanceChecks = 0;
@@ -221,6 +222,12 @@ export async function scan(
           config
         );
         await scanPage.close().catch(() => {});
+
+        if (pageViolations.blocked) {
+          blockedPages++;
+          continue;
+        }
+
         allViolations.push(...pageViolations.violations);
 
         if (pageViolations.metrics) {
@@ -282,6 +289,7 @@ export async function scan(
       violations: allViolations,
       suggestions,
       pagesScanned: urls.length,
+      blockedPages,
       duration,
       metrics: lastMetrics,
       checksRun: categories,
@@ -343,6 +351,8 @@ export async function scan(
 interface SinglePageResult {
   violations: Violation[];
   metrics?: PerformanceMetrics;
+  blocked?: boolean;
+  blockedBy?: "cloudflare" | "vercel" | "generic";
   accessibilityChecks: number;
   securityChecks: number;
   performanceChecks: number;
@@ -391,6 +401,19 @@ async function scanSinglePage(
     const resolved = await waitForChallengeResolution(page);
     if (!resolved) {
       console.warn(`[scanner] Page blocked by ${challenge.provider}: ${pageUrl}`);
+      // Page is blocked — skip heavy checks to avoid misleading score-0 results
+      return {
+        violations: [],
+        metrics: undefined,
+        blocked: true,
+        blockedBy: challenge.provider ?? "generic",
+        accessibilityChecks: 0,
+        securityChecks: 0,
+        performanceChecks: 0,
+        seoChecks: 0,
+        privacyChecks: 0,
+        mobileChecks: 0,
+      };
     }
   }
 

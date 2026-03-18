@@ -19,6 +19,7 @@ export interface ReportInput {
   violations: Violation[];
   suggestions: FixSuggestion[];
   pagesScanned: number;
+  blockedPages?: number;
   duration: number;
   metrics?: PerformanceMetrics;
   checksRun?: CheckCategory[];
@@ -125,6 +126,7 @@ export function buildReport(input: ReportInput): ScanResult {
     violations: input.violations,
     suggestions: input.suggestions,
     pagesScanned: input.pagesScanned,
+    blockedPages: input.blockedPages ?? 0,
     duration: input.duration,
     createdAt: new Date().toISOString(),
     completedAt: new Date().toISOString(),

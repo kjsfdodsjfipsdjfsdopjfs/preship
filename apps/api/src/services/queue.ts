@@ -135,6 +135,16 @@ export class QueueService {
         },
       });
 
+      // Log warning if any pages were blocked by bot protection
+      if (result.blockedPages && result.blockedPages > 0) {
+        logger.warn("Scan completed with blocked pages", {
+          component: "queue",
+          scanId,
+          blockedPages: result.blockedPages,
+          totalPages: result.pagesScanned,
+        });
+      }
+
       // Increment usage counter
       await usageQueries.incrementUsage(userId);
 
