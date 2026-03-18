@@ -2,7 +2,7 @@ import Navbar from "@/components/Navbar";
 
 const posts = [
   {
-    slug: "why-your-vibe-coded-app-is-probably-inaccessible",
+    slug: "why-vibe-coding-needs-qa",
     title: "Why Your Vibe-Coded App Is Probably Inaccessible",
     excerpt:
       "AI code generators optimize for speed and visual output, not for screen readers or keyboard navigation. Here is what they get wrong and how to fix it.",
@@ -10,7 +10,7 @@ const posts = [
     readTime: "7 min read",
   },
   {
-    slug: "ada-lawsuits-is-your-ai-built-app-next",
+    slug: "ada-lawsuits-2025",
     title: "5,114 ADA Lawsuits: Is Your AI-Built App Next?",
     excerpt:
       "Web accessibility lawsuits hit a record high in 2025. We break down the numbers, the most common violations, and what developers shipping AI-generated code need to know.",
@@ -18,7 +18,7 @@ const posts = [
     readTime: "10 min read",
   },
   {
-    slug: "api-first-scanning-cicd-quality-gate",
+    slug: "api-first-scanning",
     title: "API-First Scanning: Why Your CI/CD Needs a Quality Gate",
     excerpt:
       "Adding a scan step to your deployment pipeline catches accessibility and security regressions before they reach production. Here is how to set it up in under five minutes.",
@@ -26,7 +26,7 @@ const posts = [
     readTime: "5 min read",
   },
   {
-    slug: "developer-accessibility-checklist-2026",
+    slug: "accessibility-checklist",
     title: "The Developer's Accessibility Checklist for 2026",
     excerpt:
       "A practical, no-nonsense checklist covering WCAG 2.2 AA requirements that every frontend developer should verify before shipping. Bookmark this one.",
