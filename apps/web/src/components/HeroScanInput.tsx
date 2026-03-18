@@ -36,9 +36,9 @@ export default function HeroScanInput() {
     const token = localStorage.getItem("auth_token");
 
     if (token) {
-      router.push(`/dashboard?scan=${encoded}`);
+      router.push(`/dashboard/scans?newScan=${encoded}`);
     } else {
-      router.push(`/signup?url=${encoded}`);
+      router.push(`/signup?redirect=${encodeURIComponent(`/dashboard/scans?newScan=${encoded}`)}`);
     }
   }
 

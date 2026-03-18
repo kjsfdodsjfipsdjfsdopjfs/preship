@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Logo from "@/components/Logo";
-import SocialAuthButtons from "@/components/SocialAuthButtons";
+
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "https://api.preship.dev";
 
@@ -119,7 +119,7 @@ export default function SignupPage() {
             <a href="/privacy" className="text-orange-400 hover:text-orange-300">Privacy Policy</a>.
           </p>
 
-          <SocialAuthButtons mode="signup" />
+
         </div>
 
         <p className="mt-6 text-center text-sm text-neutral-500">

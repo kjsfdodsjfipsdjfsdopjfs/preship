@@ -27,39 +27,6 @@ interface Violation {
   autoFixable?: boolean;
 }
 
-/* ------------------------------------------------------------------ */
-/* Mock fallback data                                                  */
-/* ------------------------------------------------------------------ */
-const mockScanData = {
-  id: "scan_001",
-  url: "https://my-saas.vercel.app",
-  status: "completed" as const,
-  score: 72,
-  accessibility: 58,
-  security: 89,
-  performance: 71,
-  createdAt: "2026-03-16T14:30:00Z",
-  completedAt: "2026-03-16T14:30:28Z",
-  duration: "28s",
-  checksRun: 218,
-  progress: 0,
-};
-
-const mockViolations: Violation[] = [
-  { id: "v_001", title: "Images must have alternate text", description: "Ensures <img> elements have alternate text or a role of none or presentation. Screen readers cannot interpret images without alt text.", severity: "critical", category: "accessibility", element: '<img src="/hero-banner.png" class="w-full">', selector: "main > section:first-child > img", fix: "Add descriptive alt text to the image.", fixCode: '<img src="/hero-banner.png" class="w-full" alt="Product dashboard showing real-time analytics">', autoFixable: false },
-  { id: "v_002", title: "Form elements must have labels", description: "Ensures every form element has a corresponding <label> element or aria-label attribute.", severity: "critical", category: "accessibility", element: '<input type="email" placeholder="Enter your email">', selector: "#newsletter-form > input", fix: "Add an associated <label> element or aria-label.", fixCode: '<label for="email" class="sr-only">Email address</label>\n<input id="email" type="email" placeholder="Enter your email" aria-label="Email address">', autoFixable: true },
-  { id: "v_003", title: "Color contrast ratio is insufficient", description: "Text must have a contrast ratio of at least 4.5:1. Current ratio is 2.8:1.", severity: "serious", category: "accessibility", element: '<p class="text-gray-400">Secondary text</p>', selector: ".feature-card > p", fix: "Use a lighter text color meeting 4.5:1 ratio.", fixCode: '<p class="text-gray-300">Secondary text</p>\n<!-- Contrast ratio: 5.2:1 -->', autoFixable: true },
-  { id: "v_004", title: "Buttons must have discernible text", description: "Icon-only buttons without aria-label are invisible to assistive technology.", severity: "serious", category: "accessibility", element: '<button class="icon-btn"><svg>...</svg></button>', selector: "header > nav > button", fix: "Add aria-label describing the button action.", fixCode: '<button class="icon-btn" aria-label="Open navigation menu">\n  <svg>...</svg>\n</button>', autoFixable: true },
-  { id: "v_005", title: "Missing Content-Security-Policy header", description: "Without CSP, the app is vulnerable to XSS and data injection attacks.", severity: "serious", category: "security", fix: "Add a CSP header to your server configuration.", fixCode: "// next.config.js\nconst securityHeaders = [{\n  key: 'Content-Security-Policy',\n  value: \"default-src 'self'; script-src 'self' 'unsafe-inline';\"\n}];\n\nmodule.exports = {\n  async headers() {\n    return [{ source: '/(.*)', headers: securityHeaders }];\n  }\n};", autoFixable: false },
-  { id: "v_006", title: "Missing X-Frame-Options header", description: "Allows the site to be embedded in iframes, making it susceptible to clickjacking.", severity: "moderate", category: "security", fix: "Add X-Frame-Options: DENY.", fixCode: "{ key: 'X-Frame-Options', value: 'DENY' }", autoFixable: false },
-  { id: "v_007", title: "LCP exceeds 2.5s threshold", description: "LCP is 4.2s. The hero image is not optimized.", severity: "serious", category: "performance", element: '<img src="/hero-banner.png">', selector: "main > section > img", fix: "Use next/image with priority loading.", fixCode: "import Image from 'next/image';\n\n<Image src=\"/hero-banner.png\" alt=\"Dashboard\" width={1200} height={600} priority />", autoFixable: false },
-  { id: "v_008", title: "CLS above 0.1 threshold", description: "CLS score is 0.18. Elements shift during page load.", severity: "moderate", category: "performance", fix: "Set explicit width and height on images.", fixCode: ".hero-image {\n  aspect-ratio: 2 / 1;\n  width: 100%;\n}", autoFixable: false },
-  { id: "v_009", title: "Keyboard focus order is not logical", description: "Tab order does not follow visual order due to CSS reordering.", severity: "moderate", category: "accessibility", fix: "Ensure CSS order matches logical DOM order.", autoFixable: false },
-  { id: "v_010", title: "Links do not have descriptive text", description: "Multiple links use generic text like \"Read more\".", severity: "minor", category: "accessibility", element: '<a href="/blog/post-1">Read more</a>', fix: "Use descriptive link text.", fixCode: '<a href="/blog/post-1" aria-label="Read article: Building Accessible React Apps">Read more</a>', autoFixable: true },
-  { id: "v_011", title: "Unused JavaScript exceeds 150KB", description: "153KB of unused JS on initial page load.", severity: "minor", category: "performance", fix: "Use dynamic imports and code splitting.", fixCode: "const Chart = dynamic(() => import('chart-lib'), { ssr: false });", autoFixable: false },
-  { id: "v_012", title: "Cookie missing Secure flag", description: "Session cookie set without Secure flag.", severity: "minor", category: "security", fix: "Set Secure flag on all cookies.", fixCode: "res.setHeader('Set-Cookie', 'session=abc; Secure; HttpOnly; SameSite=Strict');", autoFixable: false },
-];
-
 const severityOrder: Record<Severity, number> = { critical: 0, serious: 1, moderate: 2, minor: 3 };
 
 /* ------------------------------------------------------------------ */
@@ -128,13 +95,18 @@ function ScanPending({ status, progress, url }: { status: string; progress: numb
 }
 
 /* ------------------------------------------------------------------ */
-/* Demo banner                                                         */
+/* Error banner                                                        */
 /* ------------------------------------------------------------------ */
-function OfflineBanner() {
+function ErrorBanner({ message, onRetry }: { message: string; onRetry: () => void }) {
   return (
-    <div className="rounded-lg border border-yellow-500/20 bg-yellow-500/5 px-4 py-2 text-sm text-yellow-400 flex items-center gap-2">
-      <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-      Could not load data from server. Showing cached results.
+    <div className="rounded-lg border border-red-500/20 bg-red-500/5 px-4 py-3 flex items-center justify-between">
+      <div className="flex items-center gap-2 text-sm text-red-400">
+        <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+        {message}
+      </div>
+      <button onClick={onRetry} className="text-sm text-red-400 hover:text-red-300 font-medium">
+        Retry
+      </button>
     </div>
   );
 }
@@ -148,7 +120,6 @@ export default function ScanDetailPage() {
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [offline, setOffline] = useState(false);
   const [scanData, setScanData] = useState<{
     id: string; url: string; status: string; score: number;
     accessibility: number; security: number; performance: number;
@@ -166,7 +137,6 @@ export default function ScanDetailPage() {
     if (!scanId) return;
     setLoading(true);
     setError(null);
-    setOffline(false);
 
     try {
       const res = await apiFetch<any>(`/api/scans/${scanId}`);
@@ -211,9 +181,7 @@ export default function ScanDetailPage() {
       }));
       setViolations(apiViolations);
     } catch {
-      setOffline(true);
-      setScanData(mockScanData);
-      setViolations(mockViolations);
+      setError("Could not load data. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -321,6 +289,14 @@ export default function ScanDetailPage() {
 
   if (loading) return <ScanDetailSkeleton />;
 
+  if (error && !scanData) {
+    return (
+      <div className="max-w-6xl mx-auto space-y-8">
+        <ErrorBanner message={error} onRetry={fetchScan} />
+      </div>
+    );
+  }
+
   if (!scanData) {
     return (
       <div className="max-w-6xl mx-auto">
@@ -341,17 +317,7 @@ export default function ScanDetailPage() {
 
   return (
     <div className="max-w-6xl mx-auto space-y-8">
-      {offline && <OfflineBanner />}
-
-      {error && (
-        <div className="rounded-lg border border-red-500/20 bg-red-500/5 px-4 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-2 text-sm text-red-400">
-            <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-            {error}
-          </div>
-          <button onClick={() => setError(null)} className="text-sm text-red-400 hover:text-red-300 font-medium">Dismiss</button>
-        </div>
-      )}
+      {error && <ErrorBanner message={error} onRetry={fetchScan} />}
 
       {/* Header */}
       <div className="flex items-start justify-between">

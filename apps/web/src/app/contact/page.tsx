@@ -10,11 +10,11 @@ export default function ContactPage() {
     subject: "",
     message: "",
   });
-  const [submitted, setSubmitted] = useState(false);
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setSubmitted(true);
+    const mailto = `mailto:support@preship.dev?subject=${encodeURIComponent(formData.subject)}&body=${encodeURIComponent(`From: ${formData.name} (${formData.email})\n\n${formData.message}`)}`;
+    window.location.href = mailto;
   }
 
   return (
@@ -29,19 +29,6 @@ export default function ContactPage() {
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-12">
           <div className="md:col-span-2">
-            {submitted ? (
-              <div className="rounded-xl border border-green-500/20 bg-green-500/5 p-8 text-center">
-                <div className="w-14 h-14 rounded-full bg-green-500/10 flex items-center justify-center mx-auto mb-4">
-                  <svg className="w-7 h-7 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
-                </div>
-                <h2 className="text-lg font-semibold text-white mb-2">Message sent!</h2>
-                <p className="text-sm text-neutral-300">
-                  Thanks for reaching out. We will get back to you within 24 hours.
-                </p>
-              </div>
-            ) : (
               <form onSubmit={handleSubmit} className="space-y-5">
                 <div>
                   <label htmlFor="name" className="block text-sm font-medium text-neutral-300 mb-1.5">
@@ -107,10 +94,12 @@ export default function ContactPage() {
                   type="submit"
                   className="inline-flex items-center justify-center font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0A0A0A] bg-orange-700 text-white hover:bg-orange-800 active:bg-orange-900 shadow-lg shadow-orange-700/20 px-6 py-2.5 text-sm rounded-lg"
                 >
-                  Send message
+                  Open email client
                 </button>
+                <p className="text-xs text-neutral-500 mt-2">
+                  Clicking will open your default email client with the message pre-filled.
+                </p>
               </form>
-            )}
           </div>
 
           <div className="space-y-6">

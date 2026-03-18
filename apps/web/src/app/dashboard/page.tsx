@@ -7,18 +7,6 @@ import Button from "@/components/Button";
 import ScoreCircle from "@/components/ScoreCircle";
 import { apiFetch } from "@/hooks/useApi";
 
-/* ------------------------------------------------------------------ */
-/* Mock fallback data                                                  */
-/* ------------------------------------------------------------------ */
-const mockStats: { label: string; value: string; icon?: React.ReactNode; trend?: { value: number; positive: boolean } }[] = [
-  { label: "Total Scans", value: "0" },
-  { label: "Average Score", value: "--" },
-  { label: "Issues Found", value: "0" },
-  { label: "Projects", value: "0" },
-];
-
-const mockRecentScans: any[] = [];
-
 const statIcons = [
   <svg key="scans" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>,
   <svg key="score" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg>,
@@ -148,13 +136,18 @@ function EmptyState() {
 }
 
 /* ------------------------------------------------------------------ */
-/* Offline banner                                                    */
+/* Error banner                                                        */
 /* ------------------------------------------------------------------ */
-function OfflineBanner() {
+function ErrorBanner({ message, onRetry }: { message: string; onRetry: () => void }) {
   return (
-    <div className="rounded-lg border border-yellow-500/20 bg-yellow-500/5 px-4 py-2 text-sm text-yellow-400 flex items-center gap-2">
-      <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-      Could not load data from server. Showing cached results.
+    <div className="rounded-lg border border-red-500/20 bg-red-500/5 px-4 py-3 flex items-center justify-between">
+      <div className="flex items-center gap-2 text-sm text-red-400">
+        <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+        {message}
+      </div>
+      <button onClick={onRetry} className="text-sm text-red-400 hover:text-red-300 font-medium">
+        Retry
+      </button>
     </div>
   );
 }
@@ -167,35 +160,23 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [scanning, setScanning] = useState(false);
-  const [offline, setOffline] = useState(false);
 
   // Data state
   const [recentScans, setRecentScans] = useState<any[]>([]);
-  const [stats, setStats] = useState<{ label: string; value: string; icon?: React.ReactNode; trend?: { value: number; positive: boolean } }[]>(mockStats);
+  const [stats, setStats] = useState<{ label: string; value: string; icon?: React.ReactNode; trend?: { value: number; positive: boolean } }[]>([]);
   const [trendData, setTrendData] = useState<{ date: string; score: number }[]>([]);
   const [avgScore, setAvgScore] = useState(0);
-  const [projectCount, setProjectCount] = useState(0);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
     setError(null);
-    setOffline(false);
 
     try {
       // Fetch scans and projects in parallel
       const [scansRes, projectsRes] = await Promise.all([
-        apiFetch<any>("/api/scans?limit=5&sort=date").catch(() => null),
-        apiFetch<any>("/api/projects?limit=1").catch(() => null),
+        apiFetch<any>("/api/scans?limit=5&sort=date"),
+        apiFetch<any>("/api/projects?limit=1"),
       ]);
-
-      if (!scansRes && !projectsRes) {
-        // Both failed - offline fallback
-        setOffline(true);
-        setRecentScans(mockRecentScans);
-        setStats(mockStats.map((s, i) => ({ ...s, icon: statIcons[i] })));
-        setLoading(false);
-        return;
-      }
 
       const scans = scansRes?.data?.scans ?? [];
       const totalScans = scansRes?.data?.pagination?.total ?? 0;
@@ -211,8 +192,6 @@ export default function DashboardPage() {
           violations: 0,
         }))
       );
-
-      setProjectCount(totalProjects);
 
       // Calculate average score from recent scans
       const completedScans = scans.filter((s: any) => s.status === "completed");
@@ -238,7 +217,7 @@ export default function DashboardPage() {
         { label: "Projects", value: String(totalProjects), icon: statIcons[3] },
       ]);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load dashboard data");
+      setError("Could not load data. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -273,21 +252,17 @@ export default function DashboardPage() {
 
   if (loading) return <DashboardSkeleton />;
 
+  if (error && recentScans.length === 0 && stats.length === 0) {
+    return (
+      <div className="max-w-6xl mx-auto space-y-8">
+        <ErrorBanner message={error} onRetry={fetchData} />
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-6xl mx-auto space-y-8">
-      {offline && <OfflineBanner />}
-
-      {error && (
-        <div className="rounded-lg border border-red-500/20 bg-red-500/5 px-4 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-2 text-sm text-red-400">
-            <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-            {error}
-          </div>
-          <button onClick={fetchData} className="text-sm text-red-400 hover:text-red-300 font-medium">
-            Retry
-          </button>
-        </div>
-      )}
+      {error && <ErrorBanner message={error} onRetry={fetchData} />}
 
       <div className="flex items-center justify-between">
         <div>

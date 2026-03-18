@@ -7,33 +7,6 @@ import UsageMeter from "@/components/UsageMeter";
 import { apiFetch } from "@/hooks/useApi";
 
 /* ------------------------------------------------------------------ */
-/* Mock fallback data                                                  */
-/* ------------------------------------------------------------------ */
-const mockCurrentPlan = {
-  name: "Pro",
-  price: "$29",
-  period: "/month",
-  renewsAt: "April 16, 2026",
-  scansUsed: 47,
-  scansLimit: 100,
-  projectsUsed: 3,
-  projectsLimit: 5,
-};
-
-const mockPlans = [
-  { id: "free", name: "Free", price: "$0", scans: "5 / mo", projects: "1", current: false },
-  { id: "pro", name: "Pro", price: "$29", scans: "100 / mo", projects: "5", current: true },
-  { id: "team", name: "Team", price: "$99", scans: "500 / mo", projects: "Unlimited", current: false },
-  { id: "enterprise", name: "Business", price: "$299", scans: "Unlimited", projects: "Unlimited", current: false },
-];
-
-const mockInvoices = [
-  { id: "inv_005", date: "Mar 1, 2026", amount: "$29.00", status: "Paid" },
-  { id: "inv_004", date: "Feb 1, 2026", amount: "$29.00", status: "Paid" },
-  { id: "inv_003", date: "Jan 1, 2026", amount: "$29.00", status: "Paid" },
-];
-
-/* ------------------------------------------------------------------ */
 /* Loading skeleton                                                    */
 /* ------------------------------------------------------------------ */
 function BillingSkeleton() {
@@ -48,13 +21,18 @@ function BillingSkeleton() {
 }
 
 /* ------------------------------------------------------------------ */
-/* Demo banner                                                         */
+/* Error banner                                                        */
 /* ------------------------------------------------------------------ */
-function OfflineBanner() {
+function ErrorBanner({ message, onRetry }: { message: string; onRetry: () => void }) {
   return (
-    <div className="rounded-lg border border-yellow-500/20 bg-yellow-500/5 px-4 py-2 text-sm text-yellow-400 flex items-center gap-2">
-      <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-      Could not load data from server. Showing cached results.
+    <div className="rounded-lg border border-red-500/20 bg-red-500/5 px-4 py-3 flex items-center justify-between">
+      <div className="flex items-center gap-2 text-sm text-red-400">
+        <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+        {message}
+      </div>
+      <button onClick={onRetry} className="text-sm text-red-400 hover:text-red-300 font-medium">
+        Retry
+      </button>
     </div>
   );
 }
@@ -65,13 +43,12 @@ function OfflineBanner() {
 export default function BillingPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [offline, setOffline] = useState(false);
 
   // Data
   const [currentPlan, setCurrentPlan] = useState<any>(null);
   const [plans, setPlans] = useState<any[]>([]);
   const [usage, setUsage] = useState<any>(null);
-  const [invoices] = useState(mockInvoices); // Invoices come from Stripe portal
+  const [invoices, setInvoices] = useState<any[]>([]);
 
   // Actions
   const [managingPortal, setManagingPortal] = useState(false);
@@ -80,17 +57,12 @@ export default function BillingPage() {
   const fetchBilling = useCallback(async () => {
     setLoading(true);
     setError(null);
-    setOffline(false);
 
     try {
       const [planRes, usageRes] = await Promise.all([
-        apiFetch<any>("/api/billing/plan").catch(() => null),
-        apiFetch<any>("/api/billing/usage").catch(() => null),
+        apiFetch<any>("/api/billing/plan"),
+        apiFetch<any>("/api/billing/usage"),
       ]);
-
-      if (!planRes && !usageRes) {
-        throw new Error("API not available");
-      }
 
       if (planRes?.data) {
         const cp = planRes.data.currentPlan;
@@ -122,9 +94,7 @@ export default function BillingPage() {
         setUsage(usageRes.data);
       }
     } catch {
-      setOffline(true);
-      setCurrentPlan(mockCurrentPlan);
-      setPlans(mockPlans);
+      setError("Could not load data. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -176,19 +146,17 @@ export default function BillingPage() {
 
   if (loading) return <BillingSkeleton />;
 
+  if (error && !currentPlan) {
+    return (
+      <div className="max-w-4xl mx-auto space-y-6">
+        <ErrorBanner message={error} onRetry={fetchBilling} />
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-4xl mx-auto space-y-6">
-      {offline && <OfflineBanner />}
-
-      {error && (
-        <div className="rounded-lg border border-red-500/20 bg-red-500/5 px-4 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-2 text-sm text-red-400">
-            <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-            {error}
-          </div>
-          <button onClick={() => setError(null)} className="text-sm text-red-400 hover:text-red-300 font-medium">Dismiss</button>
-        </div>
-      )}
+      {error && <ErrorBanner message={error} onRetry={fetchBilling} />}
 
       <h1 className="text-2xl font-bold text-white">Billing</h1>
 

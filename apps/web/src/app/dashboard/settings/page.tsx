@@ -7,19 +7,6 @@ import Badge from "@/components/Badge";
 import { apiFetch } from "@/hooks/useApi";
 
 /* ------------------------------------------------------------------ */
-/* Mock fallback data                                                  */
-/* ------------------------------------------------------------------ */
-const mockApiKeys = [
-  { id: "key_001", name: "Production", prefix: "sk_live_a3f8", created: "2026-02-10", lastUsed: "2026-03-16" },
-  { id: "key_002", name: "Development", prefix: "sk_test_7b2c", created: "2026-01-20", lastUsed: "2026-03-15" },
-];
-
-const mockProfile = {
-  name: "John Doe",
-  email: "john@example.com",
-};
-
-/* ------------------------------------------------------------------ */
 /* Loading skeleton                                                    */
 /* ------------------------------------------------------------------ */
 function SettingsSkeleton() {
@@ -38,13 +25,18 @@ function SettingsSkeleton() {
 }
 
 /* ------------------------------------------------------------------ */
-/* Demo banner                                                         */
+/* Error banner                                                        */
 /* ------------------------------------------------------------------ */
-function OfflineBanner() {
+function ErrorBanner({ message, onRetry }: { message: string; onRetry: () => void }) {
   return (
-    <div className="rounded-lg border border-yellow-500/20 bg-yellow-500/5 px-4 py-2 text-sm text-yellow-400 flex items-center gap-2 mb-6">
-      <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-      Could not load data from server. Showing cached results.
+    <div className="rounded-lg border border-red-500/20 bg-red-500/5 px-4 py-3 flex items-center justify-between mb-6">
+      <div className="flex items-center gap-2 text-sm text-red-400">
+        <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+        {message}
+      </div>
+      <button onClick={onRetry} className="text-sm text-red-400 hover:text-red-300 font-medium">
+        Retry
+      </button>
     </div>
   );
 }
@@ -58,7 +50,6 @@ export default function SettingsPage() {
 
   // Loading states
   const [loading, setLoading] = useState(true);
-  const [offline, setOffline] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Profile state
@@ -77,7 +68,7 @@ export default function SettingsPage() {
 
   const fetchProfile = useCallback(async () => {
     setLoading(true);
-    setOffline(false);
+    setError(null);
     try {
       const res = await apiFetch<any>("/api/auth/me");
       const data = res?.data;
@@ -86,9 +77,7 @@ export default function SettingsPage() {
         setProfileEmail(data.email ?? "");
       }
     } catch {
-      setOffline(true);
-      setProfileName(mockProfile.name);
-      setProfileEmail(mockProfile.email);
+      setError("Could not load data. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -107,13 +96,11 @@ export default function SettingsPage() {
       }));
       setApiKeys(keys);
     } catch {
-      if (offline) {
-        setApiKeys(mockApiKeys);
-      }
+      setError("Could not load API keys. Please try again.");
     } finally {
       setKeysLoading(false);
     }
-  }, [offline]);
+  }, []);
 
   useEffect(() => {
     fetchProfile();
@@ -179,19 +166,9 @@ export default function SettingsPage() {
 
   return (
     <div className="max-w-4xl mx-auto">
-      {offline && <OfflineBanner />}
+      {error && <ErrorBanner message={error} onRetry={activeSection === "api-keys" ? fetchApiKeys : fetchProfile} />}
 
       <h1 className="text-2xl font-bold text-white mb-6">Settings</h1>
-
-      {error && (
-        <div className="rounded-lg border border-red-500/20 bg-red-500/5 px-4 py-3 flex items-center justify-between mb-6">
-          <div className="flex items-center gap-2 text-sm text-red-400">
-            <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-            {error}
-          </div>
-          <button onClick={() => setError(null)} className="text-sm text-red-400 hover:text-red-300 font-medium">Dismiss</button>
-        </div>
-      )}
 
       <div className="flex gap-1 mb-8 p-1 rounded-lg bg-neutral-900 border border-neutral-800 w-fit">
         {[

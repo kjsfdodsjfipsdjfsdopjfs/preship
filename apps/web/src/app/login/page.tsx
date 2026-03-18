@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Logo from "@/components/Logo";
-import SocialAuthButtons from "@/components/SocialAuthButtons";
+
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "https://api.preship.dev";
 
@@ -100,7 +100,7 @@ export default function LoginPage() {
             </button>
           </form>
 
-          <SocialAuthButtons mode="login" />
+
         </div>
 
         <p className="mt-6 text-center text-sm text-neutral-500">

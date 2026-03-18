@@ -9,36 +9,6 @@ import ScanCard from "@/components/ScanCard";
 import { apiFetch } from "@/hooks/useApi";
 
 /* ------------------------------------------------------------------ */
-/* Mock fallback data                                                  */
-/* ------------------------------------------------------------------ */
-const mockProject = {
-  id: "proj_001",
-  name: "SaaS Dashboard",
-  url: "https://my-saas.vercel.app",
-  score: 82,
-  createdAt: "2026-01-15",
-  scanCount: 47,
-};
-
-const mockScans = [
-  { id: "scan_001", url: "https://my-saas.vercel.app", score: 82, date: "2026-03-16T14:30:00Z", status: "completed" as const, violations: 12 },
-  { id: "scan_010", url: "https://my-saas.vercel.app", score: 78, date: "2026-03-14T10:00:00Z", status: "completed" as const, violations: 16 },
-  { id: "scan_020", url: "https://my-saas.vercel.app", score: 74, date: "2026-03-12T09:00:00Z", status: "completed" as const, violations: 19 },
-];
-
-const mockHistory = [
-  { date: "Feb 15", score: 52 },
-  { date: "Feb 22", score: 58 },
-  { date: "Mar 1", score: 62 },
-  { date: "Mar 5", score: 65 },
-  { date: "Mar 8", score: 70 },
-  { date: "Mar 10", score: 74 },
-  { date: "Mar 12", score: 74 },
-  { date: "Mar 14", score: 78 },
-  { date: "Mar 16", score: 82 },
-];
-
-/* ------------------------------------------------------------------ */
 /* Loading skeleton                                                    */
 /* ------------------------------------------------------------------ */
 function ProjectDetailSkeleton() {
@@ -64,18 +34,6 @@ function ProjectDetailSkeleton() {
       <div className="rounded-xl border border-neutral-800 bg-neutral-900 p-6">
         {[1, 2, 3, 4].map((i) => <div key={i} className="h-16 bg-neutral-800 rounded-lg mb-2" />)}
       </div>
-    </div>
-  );
-}
-
-/* ------------------------------------------------------------------ */
-/* Demo banner                                                         */
-/* ------------------------------------------------------------------ */
-function OfflineBanner() {
-  return (
-    <div className="rounded-lg border border-yellow-500/20 bg-yellow-500/5 px-4 py-2 text-sm text-yellow-400 flex items-center gap-2">
-      <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-      Could not load data from server. Showing cached results.
     </div>
   );
 }
@@ -140,6 +98,23 @@ function HistoryChart({ data }: { data: { date: string; score: number }[] }) {
 }
 
 /* ------------------------------------------------------------------ */
+/* Error banner                                                        */
+/* ------------------------------------------------------------------ */
+function ErrorBanner({ message, onRetry }: { message: string; onRetry: () => void }) {
+  return (
+    <div className="rounded-lg border border-red-500/20 bg-red-500/5 px-4 py-3 flex items-center justify-between">
+      <div className="flex items-center gap-2 text-sm text-red-400">
+        <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+        {message}
+      </div>
+      <button onClick={onRetry} className="text-sm text-red-400 hover:text-red-300 font-medium">
+        Retry
+      </button>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
 /* Project Detail Page                                                 */
 /* ------------------------------------------------------------------ */
 export default function ProjectDetailPage() {
@@ -148,7 +123,6 @@ export default function ProjectDetailPage() {
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [offline, setOffline] = useState(false);
   const [project, setProject] = useState<any>(null);
   const [scans, setScans] = useState<any[]>([]);
   const [historyData, setHistoryData] = useState<{ date: string; score: number }[]>([]);
@@ -158,7 +132,6 @@ export default function ProjectDetailPage() {
     if (!projectId) return;
     setLoading(true);
     setError(null);
-    setOffline(false);
 
     try {
       // Fetch project and scans in parallel
@@ -215,10 +188,7 @@ export default function ProjectDetailPage() {
         );
       }
     } catch {
-      setOffline(true);
-      setProject(mockProject);
-      setScans(mockScans);
-      setHistoryData(mockHistory);
+      setError("Could not load data. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -248,6 +218,14 @@ export default function ProjectDetailPage() {
 
   if (loading) return <ProjectDetailSkeleton />;
 
+  if (error && !project) {
+    return (
+      <div className="max-w-6xl mx-auto space-y-8">
+        <ErrorBanner message={error} onRetry={fetchData} />
+      </div>
+    );
+  }
+
   if (!project) {
     return (
       <div className="max-w-6xl mx-auto">
@@ -264,17 +242,7 @@ export default function ProjectDetailPage() {
 
   return (
     <div className="max-w-6xl mx-auto space-y-8">
-      {offline && <OfflineBanner />}
-
-      {error && (
-        <div className="rounded-lg border border-red-500/20 bg-red-500/5 px-4 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-2 text-sm text-red-400">
-            <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-            {error}
-          </div>
-          <button onClick={() => setError(null)} className="text-sm text-red-400 hover:text-red-300 font-medium">Dismiss</button>
-        </div>
-      )}
+      {error && <ErrorBanner message={error} onRetry={fetchData} />}
 
       <div className="flex items-start justify-between">
         <div className="flex items-center gap-4">
