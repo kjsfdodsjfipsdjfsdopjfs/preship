@@ -56,12 +56,14 @@ export default function Sidebar() {
         <div className="px-4 py-4 border-t border-neutral-800">
           <div className="flex items-center justify-between text-xs text-neutral-500 mb-2">
             <span>Scans this month</span>
-            <span className="tabular-nums">{usage.used} / {usage.limit}</span>
+            <span className="tabular-nums">{usage.used} / {usage.limit >= 999999 ? '∞' : usage.limit}</span>
           </div>
           <div className="h-1.5 rounded-full bg-neutral-800 overflow-hidden">
             <div className={`h-full rounded-full ${usagePercent > 80 ? 'bg-red-500' : 'bg-orange-500'}`} style={{ width: `${usagePercent}%` }} />
           </div>
-          <a href="/dashboard/billing" className="block mt-3 text-xs text-orange-400 hover:text-orange-300 transition-colors">Upgrade plan</a>
+          {usage.limit < 999999 && (
+            <a href="/dashboard/billing" className="block mt-3 text-xs text-orange-400 hover:text-orange-300 transition-colors">Upgrade plan</a>
+          )}
         </div>
       )}
     </aside>
