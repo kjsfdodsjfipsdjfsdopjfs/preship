@@ -1,8 +1,10 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { usePathname } from "next/navigation";
 import Logo from "./Logo";
+import { apiFetch } from "@/hooks/useApi";
 
 const navItems = [
   { label: "Overview", href: "/dashboard", icon: <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" /></svg> },
@@ -16,6 +18,19 @@ const navItems = [
 
 export default function Sidebar() {
   const pathname = usePathname();
+  const [usage, setUsage] = useState<{ used: number; limit: number } | null>(null);
+
+  useEffect(() => {
+    apiFetch<{ success: boolean; data: { scansUsed: number; scansLimit: number } }>("/api/billing/usage")
+      .then((res) => {
+        setUsage({ used: res.data.scansUsed, limit: res.data.scansLimit });
+      })
+      .catch(() => {
+        // Silently fail — usage meter just won't show
+      });
+  }, []);
+
+  const usagePercent = usage ? Math.min(100, Math.round((usage.used / usage.limit) * 100)) : 0;
 
   return (
     <aside className="w-60 h-screen fixed left-0 top-0 bg-neutral-950 border-r border-neutral-800 flex flex-col z-40">
@@ -37,16 +52,18 @@ export default function Sidebar() {
         })}
       </nav>
 
-      <div className="px-4 py-4 border-t border-neutral-800">
-        <div className="flex items-center justify-between text-xs text-neutral-500 mb-2">
-          <span>Scans this month</span>
-          <span className="tabular-nums">47 / 100</span>
+      {usage && (
+        <div className="px-4 py-4 border-t border-neutral-800">
+          <div className="flex items-center justify-between text-xs text-neutral-500 mb-2">
+            <span>Scans this month</span>
+            <span className="tabular-nums">{usage.used} / {usage.limit}</span>
+          </div>
+          <div className="h-1.5 rounded-full bg-neutral-800 overflow-hidden">
+            <div className={`h-full rounded-full ${usagePercent > 80 ? 'bg-red-500' : 'bg-orange-500'}`} style={{ width: `${usagePercent}%` }} />
+          </div>
+          <a href="/dashboard/billing" className="block mt-3 text-xs text-orange-400 hover:text-orange-300 transition-colors">Upgrade plan</a>
         </div>
-        <div className="h-1.5 rounded-full bg-neutral-800 overflow-hidden">
-          <div className="h-full w-[47%] rounded-full bg-orange-500" />
-        </div>
-        <a href="/dashboard/billing" className="block mt-3 text-xs text-orange-400 hover:text-orange-300 transition-colors">Upgrade plan</a>
-      </div>
+      )}
     </aside>
   );
 }
