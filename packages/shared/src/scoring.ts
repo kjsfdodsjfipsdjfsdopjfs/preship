@@ -7,10 +7,10 @@ import type { Violation, CategoryScore, CheckCategory } from "./types";
  * range of violation counts instead of hitting 0 after ~10 issues.
  *
  * Calibration (approximate):
- *   weightedSum  10 → ~90
- *   weightedSum  50 → ~61
- *   weightedSum 150 → ~22
- *   weightedSum 500 → ~1
+ *   weightedSum  50 → ~86
+ *   weightedSum 150 → ~64
+ *   weightedSum 500 → ~22
+ *   weightedSum 1000 → ~5
  */
 export function calculateScore(violations: Violation[]): number {
   if (violations.length === 0) return 100;
@@ -21,8 +21,9 @@ export function calculateScore(violations: Violation[]): number {
   }, 0);
 
   // Exponential decay: score = 100 * e^(-k * weightedSum)
-  // k calibrated so real-world sites get useful, differentiated scores.
-  const k = 0.01;
+  // k=0.003 calibrated so real-world sites get differentiated scores.
+  // Most sites have 50-500 weighted violations — this range maps to ~86-22.
+  const k = 0.003;
   const score = 100 * Math.exp(-k * weightedSum);
 
   return Math.max(0, Math.round(score));
