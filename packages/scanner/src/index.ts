@@ -23,6 +23,8 @@ import { buildReport } from "./reporter";
 import { generateFixSuggestions } from "./fix-suggestions";
 import type { ScannerConfig, PerformanceMetrics } from "./types";
 import { validateUrl } from "./validate-url";
+import { detectFramework } from "./detect-framework";
+import type { FrameworkInfo } from "@preship/shared";
 
 // Configure puppeteer-extra with stealth plugin to bypass bot detection
 puppeteerExtra.use(StealthPlugin());
@@ -47,6 +49,8 @@ export {
 } from "./reporter";
 export type { StructuredReport, ReportInput } from "./reporter";
 export { validateUrl, validateUrlSync, UrlValidationError } from "./validate-url";
+export { detectFramework } from "./detect-framework";
+export type { FrameworkDetectionResult } from "./detect-framework";
 export * from "./types";
 
 /** Default timeout per page in milliseconds */
@@ -187,6 +191,7 @@ export async function scan(
 
     const allViolations: Violation[] = [];
     let lastMetrics: PerformanceMetrics | undefined;
+    let detectedFramework: FrameworkInfo | undefined;
     let blockedPages = 0;
     let totalAccessibilityChecks = 0;
     let totalSecurityChecks = 0;
@@ -232,6 +237,11 @@ export async function scan(
 
         if (pageViolations.metrics) {
           lastMetrics = pageViolations.metrics;
+        }
+
+        // Use framework from first successfully scanned page
+        if (!detectedFramework && pageViolations.framework?.framework) {
+          detectedFramework = pageViolations.framework;
         }
 
         totalAccessibilityChecks += pageViolations.accessibilityChecks;
@@ -292,6 +302,7 @@ export async function scan(
       blockedPages,
       duration,
       metrics: lastMetrics,
+      framework: detectedFramework,
       checksRun: categories,
       totalChecksPerCategory: {
         accessibility: totalAccessibilityChecks > 0 ? totalAccessibilityChecks : 0,
@@ -353,6 +364,7 @@ interface SinglePageResult {
   metrics?: PerformanceMetrics;
   blocked?: boolean;
   blockedBy?: "cloudflare" | "vercel" | "generic";
+  framework?: FrameworkInfo;
   accessibilityChecks: number;
   securityChecks: number;
   performanceChecks: number;
@@ -435,6 +447,15 @@ async function scanSinglePage(
         `[scanner] Selector "${config.waitForSelector}" not found on ${pageUrl}`
       );
     }
+  }
+
+  // Detect framework / tech stack
+  let frameworkInfo: FrameworkInfo | undefined;
+  try {
+    const poweredBy = response?.headers()?.["x-powered-by"] ?? null;
+    frameworkInfo = await detectFramework(page, poweredBy);
+  } catch (error) {
+    console.error(`[scanner] Framework detection failed on ${pageUrl}:`, error);
   }
 
   // Run accessibility checks
@@ -568,6 +589,7 @@ async function scanSinglePage(
   return {
     violations,
     metrics,
+    framework: frameworkInfo,
     accessibilityChecks,
     securityChecks,
     performanceChecks,

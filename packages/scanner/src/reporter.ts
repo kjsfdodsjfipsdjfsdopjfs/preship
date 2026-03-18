@@ -6,6 +6,7 @@ import {
   type CheckCategory,
   type CategoryScore,
   type Severity,
+  type FrameworkInfo,
 } from "@preship/shared";
 import type { PerformanceMetrics } from "./types";
 
@@ -22,6 +23,7 @@ export interface ReportInput {
   blockedPages?: number;
   duration: number;
   metrics?: PerformanceMetrics;
+  framework?: FrameworkInfo;
   checksRun?: CheckCategory[];
   totalChecksPerCategory?: Record<CheckCategory, number>;
 }
@@ -128,6 +130,7 @@ export function buildReport(input: ReportInput): ScanResult {
     pagesScanned: input.pagesScanned,
     blockedPages: input.blockedPages ?? 0,
     duration: input.duration,
+    framework: input.framework,
     createdAt: new Date().toISOString(),
     completedAt: new Date().toISOString(),
   };

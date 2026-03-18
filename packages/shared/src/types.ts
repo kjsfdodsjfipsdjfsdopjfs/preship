@@ -64,6 +64,16 @@ export interface CategoryScore {
   passed: number;
 }
 
+export interface FrameworkInfo {
+  /** Detected framework name, or null if unidentified */
+  framework: string | null;
+  /** Additional detection metadata */
+  meta: {
+    generator?: string;
+    poweredBy?: string;
+  };
+}
+
 export interface ScanResult {
   id: string;
   projectId: string;
@@ -76,6 +86,7 @@ export interface ScanResult {
   pagesScanned: number;
   blockedPages?: number;
   duration: number;
+  framework?: FrameworkInfo;
   createdAt: string;
   completedAt?: string;
 }
