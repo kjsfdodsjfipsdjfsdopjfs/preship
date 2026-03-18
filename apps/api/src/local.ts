@@ -208,15 +208,17 @@ import bcrypt from "bcryptjs";
 
 const JWT_SECRET = "local-dev-jwt-secret";
 
-app.post("/api/auth/register", async (req, res, next) => {
+app.post("/api/auth/register", async (req, res, next): Promise<void> => {
   try {
     const { name, email, password } = req.body;
     if (!email || !password) {
-      return res.status(400).json({ success: false, message: "Email and password required" });
+      res.status(400).json({ success: false, message: "Email and password required" });
+      return;
     }
     let user = await userQueries.findByEmail(email);
     if (user) {
-      return res.status(409).json({ success: false, message: "Email already registered" });
+      res.status(409).json({ success: false, message: "Email already registered" });
+      return;
     }
     const password_hash = await bcrypt.hash(password, 10);
     user = await userQueries.create({ email, password_hash, name: name || email.split("@")[0] });
@@ -225,21 +227,24 @@ app.post("/api/auth/register", async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-app.post("/api/auth/login", async (req, res, next) => {
+app.post("/api/auth/login", async (req, res, next): Promise<void> => {
   try {
     const { email, password } = req.body;
     if (!email || !password) {
-      return res.status(400).json({ success: false, message: "Email and password required" });
+      res.status(400).json({ success: false, message: "Email and password required" });
+      return;
     }
     const user = await userQueries.findByEmail(email);
     if (!user) {
-      return res.status(401).json({ success: false, message: "Invalid email or password" });
+      res.status(401).json({ success: false, message: "Invalid email or password" });
+      return;
     }
     // For seeded user with no real password
     if (user.password_hash !== "local-dev-no-password") {
       const valid = await bcrypt.compare(password, user.password_hash);
       if (!valid) {
-        return res.status(401).json({ success: false, message: "Invalid email or password" });
+        res.status(401).json({ success: false, message: "Invalid email or password" });
+        return;
       }
     }
     const token = jsonwebtoken.sign({ userId: user.id, email: user.email, plan: user.plan }, JWT_SECRET, { expiresIn: "7d" });
