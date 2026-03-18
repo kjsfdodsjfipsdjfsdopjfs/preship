@@ -7,9 +7,9 @@ interface LogoProps {
 }
 
 const sizeConfig = {
-  sm: { img: 32, fontSize: 18 },
-  md: { img: 40, fontSize: 22 },
-  lg: { img: 56, fontSize: 32 },
+  sm: { img: 40, fontSize: 20 },
+  md: { img: 52, fontSize: 24 },
+  lg: { img: 72, fontSize: 36 },
 } as const;
 
 export default function Logo({
