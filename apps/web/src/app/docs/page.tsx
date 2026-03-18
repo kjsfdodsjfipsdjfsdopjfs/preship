@@ -1,7 +1,7 @@
 import Navbar from "@/components/Navbar";
 import CodeBlock from "@/components/CodeBlock";
 
-const curlExample = `curl -X POST https://api.preship.dev/v1/scans \\
+const curlExample = `curl -X POST https://api.preship.dev/api/scans \\
   -H "Authorization: Bearer sk_live_..." \\
   -H "Content-Type: application/json" \\
   -d '{
@@ -33,10 +33,10 @@ const webhookExample = `// POST to your webhook URL
   }
 }`;
 
-const getScanExample = `curl https://api.preship.dev/v1/scans/scan_abc123 \\
+const getScanExample = `curl https://api.preship.dev/api/scans/scan_abc123 \\
   -H "Authorization: Bearer sk_live_..."`;
 
-const listScansExample = `curl "https://api.preship.dev/v1/scans?limit=10&offset=0" \\
+const listScansExample = `curl "https://api.preship.dev/api/scans?limit=10&offset=0" \\
   -H "Authorization: Bearer sk_live_..."`;
 
 const sections = [
@@ -133,7 +133,7 @@ export default function DocsPage() {
                 returns JSON-encoded responses, and uses standard HTTP response codes.
               </p>
               <div className="rounded-lg border border-neutral-800 bg-neutral-900 p-4 mb-4">
-                <p className="text-sm font-mono text-orange-400">Base URL: https://api.preship.dev/v1</p>
+                <p className="text-sm font-mono text-orange-400">Base URL: https://api.preship.dev/api</p>
               </div>
             </section>
 

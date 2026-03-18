@@ -72,7 +72,7 @@ const steps = [
   { step: "3", title: "Get results + fixes", description: "View detailed violation reports with severity ratings and copy-paste code fixes. Export PDF for your team." },
 ];
 
-const apiExample = `curl -X POST https://api.preship.dev/v1/scans \\
+const apiExample = `curl -X POST https://api.preship.dev/api/scans \\
   -H "Authorization: Bearer sk_live_..." \\
   -H "Content-Type: application/json" \\
   -d '{

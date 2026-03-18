@@ -66,22 +66,25 @@ export default function BillingPage() {
 
       if (planRes?.data) {
         const cp = planRes.data.currentPlan;
+        const priceDisplay = cp.price ? `$${Math.round(cp.price / 100)}` : "$0";
         setCurrentPlan({
           name: cp.name,
-          price: cp.price ? `$${cp.price}` : "$0",
+          price: priceDisplay,
           period: "/month",
           renewsAt: "", // From Stripe
-          scansUsed: usageRes?.data?.scansUsed ?? 0,
-          scansLimit: cp.scansPerMonth ?? 5,
+          scansUsed: usageRes?.data?.scansThisMonth ?? usageRes?.data?.scansUsed ?? 0,
+          scansLimit: cp.scansPerMonth >= 999999 ? "Unlimited" : (cp.scansPerMonth ?? 5),
           projectsUsed: usageRes?.data?.projectsUsed ?? 0,
           projectsLimit: cp.projectsLimit ?? 1,
         });
 
-        const availPlans = (planRes.data.availablePlans ?? []).map((p: any) => ({
+        const availPlans = (planRes.data.availablePlans ?? [])
+          .filter((p: any) => p.id !== "internal")
+          .map((p: any) => ({
           id: p.id,
           name: p.name,
-          price: p.price ? `$${p.price}` : "$0",
-          scans: p.scansPerMonth === -1 ? "Unlimited" : `${p.scansPerMonth} / mo`,
+          price: p.price ? `$${Math.round(p.price / 100)}` : "$0",
+          scans: p.scansPerMonth >= 10000 ? "Unlimited" : `${p.scansPerMonth} / mo`,
           projects: p.projectsLimit === -1 ? "Unlimited" : String(p.projectsLimit ?? 1),
           current: p.id === cp.id,
         }));

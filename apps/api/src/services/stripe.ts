@@ -66,7 +66,7 @@ export const PLANS: Record<string, PlanDefinition> = {
   enterprise: {
     id: "enterprise",
     name: "Enterprise",
-    scansPerMonth: Infinity,
+    scansPerMonth: 10000,
     requestsPerMinute: 300,
     features: [
       "Unlimited scans",
@@ -77,6 +77,18 @@ export const PLANS: Record<string, PlanDefinition> = {
     ],
     price: 29900, // $299/month
     stripePriceId: process.env.STRIPE_PRICE_ENTERPRISE,
+  },
+  internal: {
+    id: "internal",
+    name: "Internal",
+    scansPerMonth: 999999,
+    requestsPerMinute: 1000,
+    features: [
+      "Unlimited scans",
+      "All features",
+      "Internal testing",
+    ],
+    price: 0,
   },
 };
 
