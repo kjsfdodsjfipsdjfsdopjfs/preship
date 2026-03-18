@@ -1,4 +1,4 @@
-import type { Page } from "puppeteer";
+import type { Page } from "puppeteer-core";
 import type { Violation } from "@preship/shared";
 import type { PerformanceMetrics } from "./types";
 

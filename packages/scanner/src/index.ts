@@ -1,4 +1,4 @@
-import puppeteer, { type Page, type Browser } from "puppeteer";
+import puppeteer, { type Page, type Browser } from "puppeteer-core";
 import {
   DEFAULT_SCAN_OPTIONS,
   type ScanResult,
@@ -80,9 +80,13 @@ export async function scan(
     await validateUrl(url);
 
     // Launch browser with security sandbox disabled for container environments
+    const executablePath = process.env.PUPPETEER_EXECUTABLE_PATH
+      || process.env.CHROMIUM_PATH
+      || "/usr/bin/chromium-browser";
+
     browser = await puppeteer.launch({
       headless: "new",
-      executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
+      executablePath,
       args: [
         "--no-sandbox",
         "--disable-setuid-sandbox",

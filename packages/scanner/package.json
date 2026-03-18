@@ -18,7 +18,7 @@
   },
   "dependencies": {
     "@preship/shared": "*",
-    "puppeteer": "^21.0.0",
+    "puppeteer-core": "^21.0.0",
     "axe-core": "^4.8.0",
     "cheerio": "^1.0.0-rc.12"
   },

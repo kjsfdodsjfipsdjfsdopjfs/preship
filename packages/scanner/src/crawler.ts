@@ -1,4 +1,4 @@
-import type { Page } from "puppeteer";
+import type { Page } from "puppeteer-core";
 import * as cheerio from "cheerio";
 import type { CrawlResult } from "./types";
 import { validateUrl } from "./validate-url";

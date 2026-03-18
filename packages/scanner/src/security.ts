@@ -1,4 +1,4 @@
-import type { Page, HTTPResponse } from "puppeteer";
+import type { Page, HTTPResponse } from "puppeteer-core";
 import type { Violation } from "@preship/shared";
 import { SECURITY_HEADERS } from "@preship/shared";
 import type { SecurityCheckResult } from "./types";
