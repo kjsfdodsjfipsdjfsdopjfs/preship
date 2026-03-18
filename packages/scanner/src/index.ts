@@ -81,7 +81,7 @@ export async function scan(
 
     // Launch browser with security sandbox disabled for container environments
     browser = await puppeteer.launch({
-      headless: "new",
+      headless: true,
       executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
       args: [
         "--no-sandbox",
@@ -168,15 +168,22 @@ export async function scan(
           `[scanner] Failed to scan page ${pageUrl}: ${message}`
         );
 
-        // Add a violation for the failed page
-        allViolations.push({
-          id: `scan-error-${Math.random().toString(36).slice(2, 8)}`,
-          category: "accessibility",
-          severity: "info",
-          rule: "page-scan-error",
-          message: `Could not scan page: ${message}`,
-          url: pageUrl,
-        });
+        // Add violations for each category — severity high because we couldn't verify anything
+        const categories = config.categories ?? DEFAULT_SCAN_OPTIONS.categories;
+        for (const cat of categories) {
+          allViolations.push({
+            id: `scan-error-${cat}-${Math.random().toString(36).slice(2, 8)}`,
+            category: cat,
+            severity: "high",
+            rule: "page-scan-error",
+            message: `Could not scan page: ${message}`,
+            url: pageUrl,
+          });
+        }
+        // Count failed pages as having checks that failed
+        totalAccessibilityChecks += 50;
+        totalSecurityChecks += 15;
+        totalPerformanceChecks += 10;
       }
     }
 
@@ -204,13 +211,15 @@ export async function scan(
       metrics: lastMetrics,
       checksRun: categories,
       totalChecksPerCategory: {
-        accessibility: Math.max(totalAccessibilityChecks, 50),
-        security: Math.max(totalSecurityChecks, 15),
-        performance: Math.max(totalPerformanceChecks, 10),
+        accessibility: totalAccessibilityChecks > 0 ? totalAccessibilityChecks : 0,
+        security: totalSecurityChecks > 0 ? totalSecurityChecks : 0,
+        performance: totalPerformanceChecks > 0 ? totalPerformanceChecks : 0,
       },
     });
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
+    const message = error instanceof Error
+      ? error.message
+      : (error as any)?.message ?? JSON.stringify(error) ?? String(error);
     const duration = Date.now() - startTime;
 
     // Return a failed scan result rather than throwing
@@ -310,13 +319,19 @@ async function scanSinglePage(
     try {
       const a11yViolations = await runAccessibilityChecks(page, pageUrl);
       violations.push(...a11yViolations);
-      // Estimate total checks (axe-core typically has 50+ rules)
       accessibilityChecks += 50;
     } catch (error) {
-      console.error(
-        `[scanner] Accessibility check failed on ${pageUrl}:`,
-        error
-      );
+      const msg = error instanceof Error ? error.message : String(error);
+      console.error(`[scanner] Accessibility check failed on ${pageUrl}:`, error);
+      violations.push({
+        id: `a11y-error-${Math.random().toString(36).slice(2, 8)}`,
+        category: "accessibility",
+        severity: "high",
+        rule: "check-failed",
+        message: `Accessibility check failed: ${msg}`,
+        url: pageUrl,
+      });
+      accessibilityChecks += 50;
     }
   }
 
@@ -326,12 +341,19 @@ async function scanSinglePage(
       const secResult = await runSecurityChecks(page, response, pageUrl);
       violations.push(...secResult.violations);
       securityChecks +=
-        secResult.headersPresent.length + secResult.headersMissing.length + 5; // +5 for non-header checks
+        secResult.headersPresent.length + secResult.headersMissing.length + 5;
     } catch (error) {
-      console.error(
-        `[scanner] Security check failed on ${pageUrl}:`,
-        error
-      );
+      const msg = error instanceof Error ? error.message : String(error);
+      console.error(`[scanner] Security check failed on ${pageUrl}:`, error);
+      violations.push({
+        id: `sec-error-${Math.random().toString(36).slice(2, 8)}`,
+        category: "security",
+        severity: "high",
+        rule: "check-failed",
+        message: `Security check failed: ${msg}`,
+        url: pageUrl,
+      });
+      securityChecks += 15;
     }
   }
 
@@ -339,18 +361,21 @@ async function scanSinglePage(
   if (categories.includes("performance")) {
     try {
       metrics = await collectPerformanceMetrics(page);
-      const perfViolations = await analyzePerformance(
-        metrics,
-        pageUrl,
-        page
-      );
+      const perfViolations = await analyzePerformance(metrics, pageUrl, page);
       violations.push(...perfViolations);
-      performanceChecks += 10; // Core metrics + resource checks
+      performanceChecks += 10;
     } catch (error) {
-      console.error(
-        `[scanner] Performance check failed on ${pageUrl}:`,
-        error
-      );
+      const msg = error instanceof Error ? error.message : String(error);
+      console.error(`[scanner] Performance check failed on ${pageUrl}:`, error);
+      violations.push({
+        id: `perf-error-${Math.random().toString(36).slice(2, 8)}`,
+        category: "performance",
+        severity: "high",
+        rule: "check-failed",
+        message: `Performance check failed: ${msg}`,
+        url: pageUrl,
+      });
+      performanceChecks += 10;
     }
   }
 

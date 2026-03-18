@@ -177,7 +177,14 @@ const app = express();
 
 app.use(
   cors({
-    origin: process.env.WEB_URL || "http://localhost:3000",
+    origin: (origin, callback) => {
+      // Allow any localhost origin in local dev
+      if (!origin || origin.startsWith("http://localhost")) {
+        callback(null, true);
+      } else {
+        callback(null, false);
+      }
+    },
     credentials: true,
   })
 );
@@ -194,12 +201,84 @@ app.get("/health", (_req, res) => {
   });
 });
 
+// ── JWT Auth Routes (for frontend testing) ──────────────────────────
+
+import jsonwebtoken from "jsonwebtoken";
+import bcrypt from "bcryptjs";
+
+const JWT_SECRET = "local-dev-jwt-secret";
+
+app.post("/api/auth/register", async (req, res, next) => {
+  try {
+    const { name, email, password } = req.body;
+    if (!email || !password) {
+      return res.status(400).json({ success: false, message: "Email and password required" });
+    }
+    let user = await userQueries.findByEmail(email);
+    if (user) {
+      return res.status(409).json({ success: false, message: "Email already registered" });
+    }
+    const password_hash = await bcrypt.hash(password, 10);
+    user = await userQueries.create({ email, password_hash, name: name || email.split("@")[0] });
+    const token = jsonwebtoken.sign({ userId: user.id, email: user.email, plan: user.plan }, JWT_SECRET, { expiresIn: "7d" });
+    res.json({ success: true, data: { token, user: { id: user.id, email: user.email, name: user.name, plan: user.plan, createdAt: user.created_at } } });
+  } catch (err) { next(err); }
+});
+
+app.post("/api/auth/login", async (req, res, next) => {
+  try {
+    const { email, password } = req.body;
+    if (!email || !password) {
+      return res.status(400).json({ success: false, message: "Email and password required" });
+    }
+    const user = await userQueries.findByEmail(email);
+    if (!user) {
+      return res.status(401).json({ success: false, message: "Invalid email or password" });
+    }
+    // For seeded user with no real password
+    if (user.password_hash !== "local-dev-no-password") {
+      const valid = await bcrypt.compare(password, user.password_hash);
+      if (!valid) {
+        return res.status(401).json({ success: false, message: "Invalid email or password" });
+      }
+    }
+    const token = jsonwebtoken.sign({ userId: user.id, email: user.email, plan: user.plan }, JWT_SECRET, { expiresIn: "7d" });
+    res.json({ success: true, data: { token, user: { id: user.id, email: user.email, name: user.name, plan: user.plan, createdAt: user.created_at } } });
+  } catch (err) { next(err); }
+});
+
+// Also support Bearer token auth (in addition to API key)
+function localAuthJwtOrApiKey(
+  req: AuthenticatedRequest,
+  res: express.Response,
+  next: express.NextFunction
+): void {
+  const authHeader = req.headers.authorization;
+  if (authHeader?.startsWith("Bearer ")) {
+    try {
+      const decoded = jsonwebtoken.verify(authHeader.slice(7), JWT_SECRET) as { userId: string; email: string; plan: string };
+      userQueries.findById(decoded.userId).then((user) => {
+        if (!user) return next(new AuthError("User not found"));
+        req.userId = user.id;
+        req.userPlan = user.plan;
+        req.user = user;
+        next();
+      }).catch(next);
+      return;
+    } catch {
+      // Fall through to API key auth
+    }
+  }
+  // Fallback to API key
+  localAuth(req, res, next);
+}
+
 // ── Scan Routes ─────────────────────────────────────────────────────
 
 // POST /api/scans - create a new scan
 app.post(
   "/api/scans",
-  localAuth,
+  localAuthJwtOrApiKey,
   checkUsageLimit,
   async (req: AuthenticatedRequest, res, next) => {
     try {
@@ -257,7 +336,7 @@ const listScansSchema = z.object({
 
 app.get(
   "/api/scans",
-  localAuth,
+  localAuthJwtOrApiKey,
   async (req: AuthenticatedRequest, res, next) => {
     try {
       const parsed = listScansSchema.safeParse(req.query);
@@ -301,7 +380,7 @@ app.get(
 // GET /api/scans/:id - get scan details
 app.get(
   "/api/scans/:id",
-  localAuth,
+  localAuthJwtOrApiKey,
   async (req: AuthenticatedRequest, res, next) => {
     try {
       const scan = await scanQueries.findById(req.params.id);
@@ -346,7 +425,7 @@ app.get(
 // GET /api/scans/:id/report - PDF report
 app.get(
   "/api/scans/:id/report",
-  localAuth,
+  localAuthJwtOrApiKey,
   async (req: AuthenticatedRequest, res, next) => {
     try {
       const scan = await scanQueries.findById(req.params.id);
@@ -414,7 +493,7 @@ const paginationSchema = z.object({
 
 app.post(
   "/api/projects",
-  localAuth,
+  localAuthJwtOrApiKey,
   async (req: AuthenticatedRequest, res, next) => {
     try {
       const parsed = createProjectSchema.safeParse(req.body);
@@ -441,7 +520,7 @@ app.post(
 
 app.get(
   "/api/projects",
-  localAuth,
+  localAuthJwtOrApiKey,
   async (req: AuthenticatedRequest, res, next) => {
     try {
       const parsed = paginationSchema.safeParse(req.query);
@@ -473,7 +552,7 @@ app.get(
 
 app.get(
   "/api/projects/:id",
-  localAuth,
+  localAuthJwtOrApiKey,
   async (req: AuthenticatedRequest, res, next) => {
     try {
       const project = await projectQueries.findById(
@@ -512,7 +591,7 @@ app.get(
 
 app.get(
   "/api/projects/:id/history",
-  localAuth,
+  localAuthJwtOrApiKey,
   async (req: AuthenticatedRequest, res, next) => {
     try {
       const project = await projectQueries.findById(
@@ -548,7 +627,7 @@ app.get(
 
 app.patch(
   "/api/projects/:id",
-  localAuth,
+  localAuthJwtOrApiKey,
   async (req: AuthenticatedRequest, res, next) => {
     try {
       const parsed = updateProjectSchema.safeParse(req.body);
@@ -573,7 +652,7 @@ app.patch(
 
 app.delete(
   "/api/projects/:id",
-  localAuth,
+  localAuthJwtOrApiKey,
   async (req: AuthenticatedRequest, res, next) => {
     try {
       const deleted = await projectQueries.delete(req.params.id, req.userId!);
@@ -600,7 +679,7 @@ const FREE_PLAN = {
   price: 0,
 };
 
-app.get("/api/billing/plan", localAuth, (req: AuthenticatedRequest, res) => {
+app.get("/api/billing/plan", localAuthJwtOrApiKey, (req: AuthenticatedRequest, res) => {
   res.json({
     success: true,
     data: {
@@ -612,7 +691,7 @@ app.get("/api/billing/plan", localAuth, (req: AuthenticatedRequest, res) => {
 
 app.get(
   "/api/billing/usage",
-  localAuth,
+  localAuthJwtOrApiKey,
   async (req: AuthenticatedRequest, res, next) => {
     try {
       const usage = await usageQueries.getMonthlyUsage(req.userId!);
@@ -635,14 +714,14 @@ app.get(
   }
 );
 
-app.post("/api/billing/checkout", localAuth, (_req, res) => {
+app.post("/api/billing/checkout", localAuthJwtOrApiKey, (_req, res) => {
   res.json({
     success: false,
     error: "Billing is disabled in local dev mode.",
   });
 });
 
-app.post("/api/billing/portal", localAuth, (_req, res) => {
+app.post("/api/billing/portal", localAuthJwtOrApiKey, (_req, res) => {
   res.json({
     success: false,
     error: "Billing is disabled in local dev mode.",
@@ -655,7 +734,7 @@ app.post("/api/billing/webhook", (_req, res) => {
 
 // ── Auth Routes (simplified for local dev) ──────────────────────────
 
-app.get("/api/auth/me", localAuth, async (req: AuthenticatedRequest, res, next) => {
+app.get("/api/auth/me", localAuthJwtOrApiKey, async (req: AuthenticatedRequest, res, next) => {
   try {
     const user = await userQueries.findById(req.userId!);
     if (!user) throw new NotFoundError("User");
@@ -676,7 +755,7 @@ app.get("/api/auth/me", localAuth, async (req: AuthenticatedRequest, res, next) 
 
 app.get(
   "/api/auth/api-keys",
-  localAuth,
+  localAuthJwtOrApiKey,
   async (req: AuthenticatedRequest, res, next) => {
     try {
       const keys = await apiKeyQueries.findByUserId(req.userId!);

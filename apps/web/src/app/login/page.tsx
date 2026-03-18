@@ -3,9 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Logo from "@/components/Logo";
-
-
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "https://api.preship.dev";
+import { API_BASE } from "@/hooks/useApi";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -29,11 +27,11 @@ export default function LoginPage() {
       const data = await res.json();
 
       if (!res.ok) {
-        setError(data.message || "Invalid email or password.");
+        setError(data.message || data.error || "Invalid email or password.");
         return;
       }
 
-      localStorage.setItem("auth_token", data.token);
+      localStorage.setItem("auth_token", data.data?.token || data.token);
       router.replace("/dashboard");
     } catch {
       setError("Unable to connect to the server. Please try again later.");

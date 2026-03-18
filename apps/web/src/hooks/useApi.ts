@@ -2,7 +2,7 @@
 
 import { useState, useCallback } from "react";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "https://api.preship.dev";
+export const API_BASE = process.env.NEXT_PUBLIC_API_URL || "https://api.preship.dev";
 
 interface ApiOptions {
   method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
