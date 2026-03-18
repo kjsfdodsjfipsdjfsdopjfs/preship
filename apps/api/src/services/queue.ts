@@ -100,8 +100,10 @@ export class QueueService {
       await job.updateProgress(20);
 
       // Run the real scanner from @preship/scanner
+      // Limit pages based on plan - free plan gets 5 max
+      const maxPagesForPlan = 5; // TODO: read from user plan
       const result = await scan(url, {
-        maxPages: options?.maxPages ?? config.maxPages,
+        maxPages: Math.min(options?.maxPages ?? maxPagesForPlan, maxPagesForPlan),
         categories: options?.categories ?? [
           "accessibility",
           "security",
