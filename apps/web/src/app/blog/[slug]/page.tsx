@@ -183,7 +183,10 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   const filename = slugToFile[slug];
   if (!filename) return { title: "Not Found" };
 
-  const filePath = path.join(process.cwd(), "../../content/blog", filename);
+  const filePath = [
+    path.join(process.cwd(), "../../content/blog", filename),
+    path.join(process.cwd(), "content/blog", filename),
+  ].find((p) => fs.existsSync(p)) || path.join(process.cwd(), "content/blog", filename);
   const content = fs.readFileSync(filePath, "utf-8");
   const { frontmatter } = parseFrontmatter(content);
 
@@ -202,7 +205,10 @@ export default async function BlogPostPage({
   const filename = slugToFile[slug];
   if (!filename) notFound();
 
-  const filePath = path.join(process.cwd(), "../../content/blog", filename);
+  const filePath = [
+    path.join(process.cwd(), "../../content/blog", filename),
+    path.join(process.cwd(), "content/blog", filename),
+  ].find((p) => fs.existsSync(p)) || path.join(process.cwd(), "content/blog", filename);
 
   let content: string;
   try {

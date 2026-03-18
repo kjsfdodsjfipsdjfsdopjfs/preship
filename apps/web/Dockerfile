@@ -29,6 +29,7 @@ COPY tsconfig.base.json ./
 # Copy source code
 COPY packages/shared/ ./packages/shared/
 COPY apps/web/ ./apps/web/
+COPY content/blog/ ./content/blog/
 
 # Build shared first, then web
 RUN npm run build -w @preship/shared && npm run build -w @preship/web
@@ -46,6 +47,7 @@ WORKDIR /app
 COPY --from=builder /app/apps/web/.next/standalone ./
 COPY --from=builder /app/apps/web/.next/static ./apps/web/.next/static
 COPY --from=builder /app/apps/web/public ./apps/web/public
+COPY --from=builder /app/content/blog ./content/blog
 
 EXPOSE 3000
 
