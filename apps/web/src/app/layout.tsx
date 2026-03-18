@@ -41,7 +41,7 @@ export const metadata: Metadata = {
     locale: "en_US",
     images: [
       {
-        url: "/og-image.png",
+        url: "/opengraph-image",
         width: 1200,
         height: 630,
         alt: "PreShip - Quality Gate for AI-Generated Code",
@@ -53,7 +53,7 @@ export const metadata: Metadata = {
     title: "PreShip - Quality Gate for AI-Generated Code",
     description:
       "Accessibility, security, and performance scanning for vibe-coded apps.",
-    images: ["/og-image.png"],
+    images: ["/opengraph-image"],
   },
   robots: {
     index: true,
