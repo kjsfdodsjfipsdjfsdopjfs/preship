@@ -3,15 +3,29 @@ import type { Violation, CategoryScore, CheckCategory } from "./types";
 
 /**
  * Calculate a 0-100 score for a set of violations.
- * Starts at 100 and deducts points based on severity weights.
- * Score never goes below 0.
+ * Uses exponential decay so scores remain meaningful across the full
+ * range of violation counts instead of hitting 0 after ~10 issues.
+ *
+ * Calibration (approximate):
+ *   weightedSum  10 → ~90
+ *   weightedSum  50 → ~61
+ *   weightedSum 150 → ~22
+ *   weightedSum 500 → ~1
  */
 export function calculateScore(violations: Violation[]): number {
-  const totalDeduction = violations.reduce((sum, v) => {
+  if (violations.length === 0) return 100;
+
+  // Calculate weighted violation impact
+  const weightedSum = violations.reduce((sum, v) => {
     return sum + (SEVERITY_WEIGHTS[v.severity] ?? 0);
   }, 0);
 
-  return Math.max(0, Math.round(100 - totalDeduction));
+  // Exponential decay: score = 100 * e^(-k * weightedSum)
+  // k calibrated so real-world sites get useful, differentiated scores.
+  const k = 0.01;
+  const score = 100 * Math.exp(-k * weightedSum);
+
+  return Math.max(0, Math.round(score));
 }
 
 /**
