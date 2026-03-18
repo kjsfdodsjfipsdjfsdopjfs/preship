@@ -143,11 +143,10 @@ export default function ScanDetailPage() {
       const data = res?.data;
       if (!data) throw new Error("No scan data returned");
 
-      const results = data.results ?? {};
-      const cats: any[] = results.categories ?? [];
-      const a11y = cats.find((c: any) => c.category === "accessibility" || c.name === "accessibility" || c.id === "accessibility");
-      const sec = cats.find((c: any) => c.category === "security" || c.name === "security" || c.id === "security");
-      const perf = cats.find((c: any) => c.category === "performance" || c.name === "performance" || c.id === "performance");
+      const cats: any[] = data.categories ?? data.results?.categories ?? [];
+      const a11y = cats.find((c: any) => c.category === "accessibility");
+      const sec = cats.find((c: any) => c.category === "security");
+      const perf = cats.find((c: any) => c.category === "performance");
 
       setScanData({
         id: data.scanId,
@@ -159,15 +158,17 @@ export default function ScanDetailPage() {
         performance: perf?.score ?? 0,
         createdAt: data.createdAt,
         completedAt: data.completedAt ?? "",
-        duration:
-          data.completedAt && data.createdAt
+        duration: data.duration
+          ? `${Math.round(data.duration / 1000)}s`
+          : data.completedAt && data.createdAt
             ? `${Math.round((new Date(data.completedAt).getTime() - new Date(data.createdAt).getTime()) / 1000)}s`
             : "--",
-        checksRun: results.checksRun ?? 0,
+        checksRun: data.pagesScanned ?? 0,
         progress: data.progress ?? 0,
       });
 
-      const apiViolations: Violation[] = (results.violations ?? []).map((v: any, i: number) => ({
+      const rawViolations = data.violations ?? data.results?.violations ?? [];
+      const apiViolations: Violation[] = rawViolations.map((v: any, i: number) => ({
         id: v.id ?? `v_${i}`,
         title: v.title ?? v.rule ?? "Unknown violation",
         description: v.description ?? v.message ?? "",
