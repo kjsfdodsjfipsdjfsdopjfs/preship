@@ -1,5 +1,5 @@
 # ── Stage 1: Build ────────────────────────────────────────────────────
-FROM node:20-alpine AS builder
+FROM node:20-slim AS builder
 
 WORKDIR /app
 
@@ -26,22 +26,31 @@ RUN npm run build -w @preship/shared && \
     npm run build -w @preship/api
 
 # ── Stage 2: Production ──────────────────────────────────────────────
-FROM node:20-alpine AS runner
+FROM node:20-slim AS runner
 
-RUN apk add --no-cache \
+# Install Chromium and dependencies for Debian/slim
+RUN apt-get update && apt-get install -y --no-install-recommends \
     chromium \
-    nss \
-    freetype \
-    harfbuzz \
-    ca-certificates \
-    ttf-freefont \
-    font-noto-cjk \
-    dumb-init
+    fonts-liberation \
+    fonts-noto-cjk \
+    libatk-bridge2.0-0 \
+    libatk1.0-0 \
+    libcups2 \
+    libdrm2 \
+    libgbm1 \
+    libnss3 \
+    libx11-xcb1 \
+    libxcomposite1 \
+    libxdamage1 \
+    libxrandr2 \
+    xdg-utils \
+    wget \
+    dumb-init \
+    && rm -rf /var/lib/apt/lists/*
 
-# Puppeteer config — chromium-browser on Alpine, no sandbox needed in containers
-ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
+# Puppeteer config — use system Chromium
+ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
 ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
-ENV CHROMIUM_FLAGS="--no-sandbox --disable-dev-shm-usage"
 ENV NODE_ENV=production
 
 WORKDIR /app
@@ -64,10 +73,9 @@ COPY --from=builder /app/apps/api/dist ./apps/api/dist
 COPY --from=builder /app/apps/api/src/migrations ./apps/api/dist/migrations
 
 # Create non-root user for security
-RUN addgroup -g 1001 -S preship && \
-    adduser -S preship -u 1001 -G preship
+RUN groupadd -r preship && useradd -r -g preship -m preship
 
-# Chromium needs a writable tmp dir for crash dumps and IPC
+# Chromium needs writable dirs
 RUN mkdir -p /tmp/chromium && chown preship:preship /tmp/chromium
 
 USER preship

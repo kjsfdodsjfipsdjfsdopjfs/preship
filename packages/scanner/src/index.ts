@@ -82,7 +82,7 @@ export async function scan(
     // Launch browser with security sandbox disabled for container environments
     const executablePath = process.env.PUPPETEER_EXECUTABLE_PATH
       || process.env.CHROMIUM_PATH
-      || "/usr/bin/chromium-browser";
+      || "/usr/bin/chromium";
 
     browser = await puppeteer.launch({
       headless: "new",
