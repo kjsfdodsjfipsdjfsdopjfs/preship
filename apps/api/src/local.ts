@@ -318,7 +318,7 @@ app.post(
         success: true,
         data: {
           scanId: scan.id,
-          status: "pending",
+          status: "queued",
           url: scan.url,
           projectId: projectId || null,
           createdAt: scan.created_at,
@@ -393,7 +393,7 @@ app.get(
       if (scan.user_id !== req.userId)
         throw new ForbiddenError("You do not have access to this scan");
 
-      if (scan.status === "pending" || scan.status === "running") {
+      if (scan.status === "queued" || scan.status === "processing") {
         const jobStatus = await localQueueService.getJobStatus(scan.id);
         res.json({
           success: true,

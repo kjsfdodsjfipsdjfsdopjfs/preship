@@ -51,7 +51,7 @@ export class LocalQueueService {
     this.jobProgress.set(scanId, 10);
 
     // Update status to running
-    await _scanQueries.updateStatus(scanId, "running");
+    await _scanQueries.updateStatus(scanId, "processing");
 
     try {
       this.jobProgress.set(scanId, 20);

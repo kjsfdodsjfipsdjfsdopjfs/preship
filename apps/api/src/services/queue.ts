@@ -92,8 +92,8 @@ export class QueueService {
 
     console.log(`[queue] Processing scan ${scanId} for ${url}`);
 
-    // Update status to running (matches shared ScanStatus type)
-    await scanQueries.updateStatus(scanId, "running");
+    // Update status to processing (matches DB CHECK constraint)
+    await scanQueries.updateStatus(scanId, "processing");
     await job.updateProgress(10);
 
     try {

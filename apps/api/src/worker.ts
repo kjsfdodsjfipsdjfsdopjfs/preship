@@ -21,7 +21,7 @@ async function processScanJob(
 
   console.log(`[worker] Processing scan ${scanId} for ${url}`);
 
-  await scanQueries.updateStatus(scanId, "running");
+  await scanQueries.updateStatus(scanId, "processing");
   await job.updateProgress(10);
 
   try {

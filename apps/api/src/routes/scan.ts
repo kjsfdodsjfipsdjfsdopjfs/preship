@@ -68,7 +68,7 @@ router.post(
         success: true,
         data: {
           scanId: scan.id,
-          status: "pending",
+          status: "queued",
           url: scan.url,
           projectId: projectId || null,
           createdAt: scan.created_at,
@@ -148,7 +148,7 @@ router.get(
 
       // If still processing, also get queue status
       // ScanStatus values: "pending" | "running" | "completed" | "failed"
-      if (scan.status === "pending" || scan.status === "running") {
+      if (scan.status === "queued" || scan.status === "processing") {
         const jobStatus = await queueService.getJobStatus(scan.id);
 
         res.json({
