@@ -164,6 +164,7 @@ router.get(
         return;
       }
 
+      const r = (scan.results as Record<string, unknown>) ?? {};
       res.json({
         success: true,
         data: {
@@ -171,7 +172,11 @@ router.get(
           status: scan.status,
           url: scan.url,
           overallScore: scan.score ?? 0,
-          results: scan.results,
+          categories: r.categories ?? [],
+          violations: r.violations ?? [],
+          suggestions: r.suggestions ?? [],
+          pagesScanned: r.pagesScanned ?? 0,
+          duration: r.duration ?? 0,
           error: scan.error,
           createdAt: scan.created_at,
           completedAt: scan.completed_at,

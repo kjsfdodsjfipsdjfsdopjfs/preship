@@ -15,7 +15,7 @@ const tiers = [
     features: ["100 scans / month", "Accessibility + Security + Performance", "Fix suggestions with code", "5 projects", "CI/CD integration", "API access", "PDF reports", "Email support"],
   },
   {
-    name: "Team", price: "$99", period: "/month", description: "For small teams shipping fast", cta: "Start Team Trial",
+    name: "Team", price: "$79", period: "/month", description: "For small teams shipping fast", cta: "Start Team Trial",
     href: "/signup?plan=team",
     features: ["500 scans / month", "Everything in Pro", "Unlimited projects", "Team members (up to 10)", "Scheduled scans", "Slack notifications", "Priority support", "Custom rules"],
   },
