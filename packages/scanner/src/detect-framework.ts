@@ -35,7 +35,7 @@ export async function detectFramework(
 
   // Run all detection checks in a single page.evaluate call for efficiency
   const detected = await page.evaluate(() => {
-    const win = window as Record<string, unknown>;
+    const win = window as unknown as Record<string, unknown>;
 
     // Check framework-specific window globals (most specific first)
     if (win.__NEXT_DATA__) return "Next.js";
@@ -71,7 +71,7 @@ export async function detectFramework(
         const root =
           document.getElementById("root") ||
           document.getElementById("app");
-        return root && (root as Record<string, unknown>)._reactRootContainer;
+        return root && (root as unknown as Record<string, unknown>)._reactRootContainer;
       })()
     ) {
       return "React";
