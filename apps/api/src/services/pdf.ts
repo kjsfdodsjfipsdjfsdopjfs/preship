@@ -350,8 +350,8 @@ function drawCodeBlock(
   x: number,
   width: number
 ): void {
-  const truncated = truncate(code, 300);
-  doc.font(FONTS.mono).fontSize(7);
+  const truncated = truncate(code, 150);
+  doc.font(FONTS.mono).fontSize(6);
   const textHeight = doc.heightOfString(truncated, { width: width - 16 });
   const blockHeight = textHeight + 10;
 
@@ -364,7 +364,7 @@ function drawCodeBlock(
 
   doc
     .font(FONTS.mono)
-    .fontSize(7)
+    .fontSize(6)
     .fillColor("#D1D5DB")
     .text(truncated, x + 8, doc.y + 5, {
       width: width - 16,
@@ -591,7 +591,7 @@ function buildSummaryPage(
 
   const circleSpacing = CONTENT_WIDTH / 3;
   const circleBaseX = PAGE_MARGIN + circleSpacing / 2;
-  const circleY = doc.y + 38;
+  const circleY = doc.y + 30;
 
   for (let i = 0; i < categories.length; i++) {
     const catData = getCategoryData(result.categories, categories[i].cat);
@@ -599,13 +599,13 @@ function buildSummaryPage(
       doc,
       circleBaseX + i * circleSpacing,
       circleY,
-      32,
+      24,
       catData.score,
-      { fontSize: 20, showLabel: false, label: categories[i].label }
+      { fontSize: 16, showLabel: false, label: categories[i].label }
     );
   }
 
-  doc.y = circleY + 56;
+  doc.y = circleY + 44;
 
   // ── Key statistics compact table ──
   doc.y += 10;
@@ -814,23 +814,23 @@ function buildViolationsSection(
         .text(violation.message, textX, doc.y, { width: textW });
       doc.y += 3;
 
-      // Affected element (compact)
-      if (violation.element) {
+      // Affected element (only for critical/high severity)
+      if (violation.element && (severity === "critical" || severity === "high")) {
         doc
           .font(FONTS.bold)
           .fontSize(7)
           .fillColor(COLORS.darkGray)
           .text("Element:", textX, doc.y);
         doc.y += 1;
-        drawCodeBlock(doc, truncate(violation.element, 200), textX, textW);
+        drawCodeBlock(doc, truncate(violation.element, 150), textX, textW);
       }
 
-      // Fix suggestion inline
+      // Fix suggestion inline (description only, no code snippet)
       const suggestion = result.suggestions.find(
         (s) => s.violationId === violation.id
       );
       if (suggestion) {
-        ensureSpace(doc, 40);
+        ensureSpace(doc, 30);
         doc
           .font(FONTS.bold)
           .fontSize(7)
@@ -845,10 +845,6 @@ function buildViolationsSection(
             width: textW - 8,
           });
         doc.y += 2;
-
-        if (suggestion.codeSnippet) {
-          drawCodeBlock(doc, suggestion.codeSnippet, textX, textW);
-        }
       }
 
       // Draw colored left accent bar
@@ -859,7 +855,7 @@ function buildViolationsSection(
         .fill(getSeverityColor(severity))
         .restore();
 
-      doc.y += 6;
+      doc.y += 4;
 
       // Thin separator between violations
       doc
@@ -870,7 +866,7 @@ function buildViolationsSection(
         .strokeColor(COLORS.lightGray)
         .stroke()
         .restore();
-      doc.y += 6;
+      doc.y += 4;
     }
 
     doc.y += 4;

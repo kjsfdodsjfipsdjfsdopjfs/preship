@@ -98,7 +98,7 @@ export default function ScansPage() {
         score: s.overallScore ?? 0,
         date: s.createdAt,
         status: s.status,
-        violations: 0,
+        ...(s.violationCount != null && s.violationCount > 0 ? { violations: s.violationCount } : {}),
       }));
       setScans(apiScans);
       setTotalScans(res?.data?.pagination?.total ?? 0);

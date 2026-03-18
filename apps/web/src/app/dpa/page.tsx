@@ -101,6 +101,11 @@ export default function DpaPage() {
                     <td className="px-4 py-3">PostgreSQL database hosting</td>
                     <td className="px-4 py-3">United States</td>
                   </tr>
+                  <tr className="border-b border-neutral-800">
+                    <td className="px-4 py-3">Stripe</td>
+                    <td className="px-4 py-3">Payment processing</td>
+                    <td className="px-4 py-3">United States</td>
+                  </tr>
                   <tr>
                     <td className="px-4 py-3">Resend</td>
                     <td className="px-4 py-3">Transactional email delivery</td>
@@ -143,7 +148,24 @@ export default function DpaPage() {
           </section>
 
           <section>
-            <h2 className="text-xl font-semibold text-white mb-3">9. Term and Termination</h2>
+            <h2 className="text-xl font-semibold text-white mb-3">9. Data Retention</h2>
+            <p className="text-neutral-300 leading-relaxed mb-3">
+              Scan data is retained according to the Customer&apos;s subscription plan:
+            </p>
+            <ul className="list-disc list-inside text-neutral-300 space-y-2 ml-2">
+              <li><strong className="text-white">Free:</strong> 7 days</li>
+              <li><strong className="text-white">Pro:</strong> 90 days</li>
+              <li><strong className="text-white">Team:</strong> 1 year</li>
+              <li><strong className="text-white">Enterprise:</strong> Unlimited retention</li>
+            </ul>
+            <p className="text-neutral-300 leading-relaxed mt-3">
+              Account and billing data is retained for the duration of the service agreement and for
+              any additional period required by applicable law (e.g., tax and accounting obligations).
+            </p>
+          </section>
+
+          <section>
+            <h2 className="text-xl font-semibold text-white mb-3">10. Term and Termination</h2>
             <p className="text-neutral-300 leading-relaxed">
               This DPA is effective for the duration of the service agreement between the Customer
               and PreShip. Upon termination, PreShip will delete all personal data within 30 days,
@@ -153,7 +175,7 @@ export default function DpaPage() {
           </section>
 
           <section>
-            <h2 className="text-xl font-semibold text-white mb-3">10. Contact</h2>
+            <h2 className="text-xl font-semibold text-white mb-3">11. Contact</h2>
             <p className="text-neutral-300 leading-relaxed">
               For questions about this Data Processing Agreement or to request a signed copy,
               please contact us at{" "}

@@ -10,6 +10,7 @@ import { Worker, Job } from "bullmq";
 import { scan } from "@preship/scanner";
 import { config } from "./config";
 import { scanQueries, usageQueries } from "./models/index";
+import { logger } from "./utils/logger";
 import type { ScanJobData } from "./services/queue";
 
 const SCAN_QUEUE_NAME = "scans";
@@ -19,7 +20,7 @@ async function processScanJob(
 ): Promise<{ scanId: string; overallScore: number }> {
   const { scanId, userId, url, options } = job.data;
 
-  console.log(`[worker] Processing scan ${scanId} for ${url}`);
+  logger.info("Processing scan", { scanId, url, component: "worker" });
 
   await scanQueries.updateStatus(scanId, "processing");
   await job.updateProgress(10);
@@ -60,13 +61,13 @@ async function processScanJob(
     await usageQueries.incrementUsage(userId);
 
     await job.updateProgress(100);
-    console.log(`[worker] Scan ${scanId} completed with score ${overallScore}`);
+    logger.info("Scan completed", { scanId, overallScore, component: "worker" });
 
     return { scanId, overallScore };
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Unknown scan error";
-    console.error(`[worker] Scan ${scanId} failed:`, message);
+    logger.error("Scan failed", { scanId, error: message, component: "worker" });
 
     await scanQueries.updateStatus(scanId, "failed", { error: message });
     throw error;
@@ -74,7 +75,7 @@ async function processScanJob(
 }
 
 async function start() {
-  console.log("[worker] Starting BullMQ worker...");
+  logger.info("Starting BullMQ worker", { component: "worker" });
 
   const connection = { url: config.redisUrl };
 
@@ -94,22 +95,29 @@ async function start() {
   );
 
   worker.on("completed", (job) => {
-    console.log(`[worker] Job ${job.id} completed`);
+    logger.info("Job completed", { jobId: job.id, component: "worker" });
   });
 
   worker.on("failed", (job, error) => {
-    console.error(`[worker] Job ${job?.id} failed:`, error.message);
+    logger.error("Job failed", {
+      jobId: job?.id,
+      error: error.message,
+      component: "worker",
+    });
   });
 
   worker.on("error", (err) => {
-    console.error("[worker] Worker error:", err.message);
+    logger.error("Worker error", { error: err.message, component: "worker" });
   });
 
-  console.log("[worker] Worker listening for jobs on queue:", SCAN_QUEUE_NAME);
+  logger.info("Worker listening for jobs", {
+    queue: SCAN_QUEUE_NAME,
+    component: "worker",
+  });
 
   // Graceful shutdown
   const shutdown = async () => {
-    console.log("[worker] Shutting down...");
+    logger.info("Shutting down", { component: "worker" });
     await worker.close();
     process.exit(0);
   };
@@ -119,6 +127,9 @@ async function start() {
 }
 
 start().catch((err) => {
-  console.error("[worker] Fatal error:", err);
+  logger.error("Fatal error", {
+    error: err instanceof Error ? err.message : String(err),
+    component: "worker",
+  });
   process.exit(1);
 });

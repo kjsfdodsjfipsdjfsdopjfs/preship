@@ -1,5 +1,6 @@
 import pg from "pg";
 import { config } from "../config";
+import { logger } from "../utils/logger";
 
 // ── Database Pool ───────────────────────────────────────────────────
 
@@ -11,7 +12,7 @@ const pool = new pg.Pool({
 });
 
 pool.on("error", (err) => {
-  console.error("[db] Unexpected pool error:", err.message);
+  logger.error("Unexpected pool error", { error: err.message, component: "db" });
 });
 
 export { pool };

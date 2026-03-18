@@ -79,9 +79,12 @@ const SEVERITY_ORDER: Record<Severity, number> = {
 
 /** Category weights for calculating the overall weighted score */
 const CATEGORY_WEIGHTS: Record<CheckCategory, number> = {
-  accessibility: 0.4,
-  security: 0.35,
-  performance: 0.25,
+  accessibility: 0.25,
+  security: 0.25,
+  performance: 0.15,
+  seo: 0.15,
+  privacy: 0.10,
+  mobile: 0.10,
 };
 
 /**
@@ -99,6 +102,9 @@ export function buildReport(input: ReportInput): ScanResult {
       accessibility: 50, // approximate number of axe-core rules
       security: 15,
       performance: 10,
+      seo: 10,
+      privacy: 5,
+      mobile: 6,
     };
 
   const categories = calculateCategoryScores(
@@ -219,6 +225,9 @@ function buildSummary(
     accessibility: 0,
     security: 0,
     performance: 0,
+    seo: 0,
+    privacy: 0,
+    mobile: 0,
   };
 
   for (const v of violations) {

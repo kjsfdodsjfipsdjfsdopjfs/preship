@@ -16,6 +16,9 @@ export const CATEGORY_LABELS: Record<CheckCategory, string> = {
   accessibility: "Accessibility",
   security: "Security",
   performance: "Performance",
+  seo: "SEO",
+  privacy: "Privacy",
+  mobile: "Mobile",
 };
 
 // ── Score thresholds ─────────────────────────────────────────────────
@@ -85,6 +88,9 @@ export const DEFAULT_SCAN_OPTIONS = {
     "accessibility" as CheckCategory,
     "security" as CheckCategory,
     "performance" as CheckCategory,
+    "seo" as CheckCategory,
+    "privacy" as CheckCategory,
+    "mobile" as CheckCategory,
   ],
 };
 

@@ -2,6 +2,7 @@ import { Queue, Worker, Job } from "bullmq";
 import { scan } from "@preship/scanner";
 import { config } from "../config";
 import { scanQueries, usageQueries } from "../models/index";
+import { logger } from "../utils/logger";
 import type { ScanRequest } from "@preship/shared";
 
 const SCAN_QUEUE_NAME = "scans";
@@ -59,26 +60,27 @@ export class QueueService {
       );
 
       this.worker.on("completed", (job) => {
-        console.log(`[queue] Scan job ${job.id} completed`);
+        logger.info("Scan job completed", { jobId: job.id, component: "queue" });
       });
 
       this.worker.on("failed", (job, error) => {
-        console.error(
-          `[queue] Scan job ${job?.id} failed:`,
-          error.message
-        );
+        logger.error("Scan job failed", {
+          jobId: job?.id,
+          error: error.message,
+          component: "queue",
+        });
       });
 
       this.worker.on("error", (err) => {
-        console.error("[queue] Worker error:", err.message);
+        logger.error("Worker error", { error: err.message, component: "queue" });
       });
 
-      console.log("[queue] Queue service initialized");
+      logger.info("Queue service initialized", { component: "queue" });
     } catch (error) {
-      console.warn(
-        "[queue] Queue service initialization failed (Redis may not be available):",
-        error instanceof Error ? error.message : error
-      );
+      logger.warn("Queue service initialization failed (Redis may not be available)", {
+        error: error instanceof Error ? error.message : String(error),
+        component: "queue",
+      });
     }
   }
 
@@ -90,7 +92,7 @@ export class QueueService {
   ): Promise<{ scanId: string; overallScore: number }> {
     const { scanId, userId, url, options } = job.data;
 
-    console.log(`[queue] Processing scan ${scanId} for ${url}`);
+    logger.info("Processing scan", { scanId, url, component: "queue" });
 
     // Update status to processing (matches DB CHECK constraint)
     await scanQueries.updateStatus(scanId, "processing");
@@ -137,13 +139,13 @@ export class QueueService {
       await usageQueries.incrementUsage(userId);
 
       await job.updateProgress(100);
-      console.log(`[queue] Scan ${scanId} completed with score ${overallScore}`);
+      logger.info("Scan completed", { scanId, overallScore, component: "queue" });
 
       return { scanId, overallScore };
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Unknown scan error";
-      console.error(`[queue] Scan ${scanId} failed:`, message);
+      logger.error("Scan failed", { scanId, error: message, component: "queue" });
 
       await scanQueries.updateStatus(scanId, "failed", { error: message });
       throw error;

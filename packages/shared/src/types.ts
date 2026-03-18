@@ -16,6 +16,9 @@ export const CheckCategory = {
   ACCESSIBILITY: "accessibility",
   SECURITY: "security",
   PERFORMANCE: "performance",
+  SEO: "seo",
+  PRIVACY: "privacy",
+  MOBILE: "mobile",
 } as const;
 
 export type CheckCategory = (typeof CheckCategory)[keyof typeof CheckCategory];
@@ -130,7 +133,7 @@ export const ScanRequestSchema = z.object({
     .object({
       maxPages: z.number().min(1).max(100).optional(),
       categories: z
-        .array(z.enum(["accessibility", "security", "performance"]))
+        .array(z.enum(["accessibility", "security", "performance", "seo", "privacy", "mobile"]))
         .optional(),
       waitForTimeout: z.number().min(0).max(30000).optional(),
       includeFixSuggestions: z.boolean().optional(),

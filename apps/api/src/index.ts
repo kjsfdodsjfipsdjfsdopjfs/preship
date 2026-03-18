@@ -3,11 +3,14 @@ import cors from "cors";
 import helmet from "helmet";
 import { config } from "./config";
 import { standardRateLimit } from "./middleware/rateLimit";
+import { requestLogger } from "./middleware/requestLogger";
 import { AppError, ValidationError } from "./utils/errors";
+import { logger } from "./utils/logger";
 import scanRoutes from "./routes/scan";
 import authRoutes from "./routes/auth";
 import billingRoutes from "./routes/billing";
 import projectRoutes from "./routes/projects";
+import healthRoutes from "./routes/health";
 import { queueService } from "./services/queue";
 import { runMigrations } from "./migrate";
 import { userQueries } from "./models/index";
@@ -41,16 +44,11 @@ app.use(
 // Parse JSON for all other routes
 app.use(express.json({ limit: "10mb" }));
 app.use(standardRateLimit);
+app.use(requestLogger);
 
 // ── Health Check ─────────────────────────────────────────────────────
 
-app.get("/health", (_req, res) => {
-  res.json({
-    status: "ok",
-    version: "0.1.0",
-    timestamp: new Date().toISOString(),
-  });
-});
+app.use(healthRoutes);
 
 // ── API Routes ───────────────────────────────────────────────────────
 
@@ -111,7 +109,11 @@ app.use(
     }
 
     // Unexpected errors
-    console.error("Unhandled error:", err);
+    logger.error("Unhandled error", {
+      error: err.message,
+      stack: err.stack,
+      requestId: _req.requestId,
+    });
     res.status(500).json({
       success: false,
       error: "Internal server error",
@@ -128,20 +130,29 @@ async function start() {
 
   // Initialize background job queue (non-blocking - won't crash if Redis is down)
   queueService.initialize().catch((err) => {
-    console.warn("Queue initialization skipped:", err);
+    logger.warn("Queue initialization skipped", {
+      error: err instanceof Error ? err.message : String(err),
+    });
   });
 
   app.listen(config.port, () => {
-    console.log(`PreShip API running on http://localhost:${config.port}`);
-    console.log(`Environment: ${config.nodeEnv}`);
+    logger.info("PreShip API started", {
+      port: config.port,
+      environment: config.nodeEnv,
+    });
   });
 }
 
-start().catch(console.error);
+start().catch((err) => {
+  logger.error("Failed to start server", {
+    error: err instanceof Error ? err.message : String(err),
+  });
+  process.exit(1);
+});
 
 // Graceful shutdown
 process.on("SIGTERM", async () => {
-  console.log("SIGTERM received, shutting down...");
+  logger.info("SIGTERM received, shutting down");
   await queueService.shutdown();
   process.exit(0);
 });

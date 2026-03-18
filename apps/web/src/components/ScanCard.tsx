@@ -27,7 +27,7 @@ export default function ScanCard({ id, url, score, date, status, violations, cla
         <p className="text-sm font-medium text-white truncate">{url}</p>
         <p className="text-xs text-neutral-500 mt-0.5">
           {formatRelativeTime(date)}
-          {violations !== undefined && <span className="ml-2"><span className={getScoreColor(score)}>{violations}</span> violations</span>}
+          {violations != null && violations > 0 && <span className="ml-2"><span className={getScoreColor(score)}>{violations}</span> violations</span>}
         </p>
       </div>
       {statusBadge[status]}

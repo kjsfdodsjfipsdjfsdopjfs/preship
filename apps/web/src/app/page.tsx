@@ -3,7 +3,6 @@ import Button from "@/components/Button";
 import CodeBlock from "@/components/CodeBlock";
 import PricingTable from "@/components/PricingTable";
 import HeroScanInput from "@/components/HeroScanInput";
-import AnimatedCounter from "@/components/AnimatedCounter";
 
 /* ------------------------------------------------------------------ */
 /* Feature data                                                        */
@@ -269,13 +268,23 @@ export default function LandingPage() {
       </section>
 
       {/* ============================================================ */}
-      {/* SOCIAL PROOF                                                 */}
+      {/* PLATFORM HIGHLIGHTS                                          */}
       {/* ============================================================ */}
-      <section aria-label="Social proof" className="py-20 md:py-28 border-t border-neutral-800 bg-neutral-900/50">
+      <section aria-label="Platform highlights" className="py-20 md:py-28 border-t border-neutral-800 bg-neutral-900/50">
         <div className="max-w-4xl mx-auto px-4 text-center">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-12">
-            <AnimatedCounter end={2847593} duration={2500} className="text-orange-400" label="violations found and reported" />
-            <AnimatedCounter end={184729} duration={2500} className="text-white" label="apps scanned by developers" />
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-12">
+            <div>
+              <p className="text-5xl md:text-6xl font-bold tabular-nums text-orange-400">200+</p>
+              <p className="mt-2 text-neutral-300">checks per scan</p>
+            </div>
+            <div>
+              <p className="text-5xl md:text-6xl font-bold tabular-nums text-white">&lt;30s</p>
+              <p className="mt-2 text-neutral-300">results delivered</p>
+            </div>
+            <div>
+              <p className="text-5xl md:text-6xl font-bold tabular-nums text-green-400">3</p>
+              <p className="mt-2 text-neutral-300">audit dimensions covered</p>
+            </div>
           </div>
         </div>
       </section>

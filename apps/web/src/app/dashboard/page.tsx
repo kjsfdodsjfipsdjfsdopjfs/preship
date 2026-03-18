@@ -119,18 +119,50 @@ function TrendChart({ data }: { data: { date: string; score: number }[] }) {
 }
 
 /* ------------------------------------------------------------------ */
-/* Empty state                                                         */
+/* Onboarding card (shown when user has 0 scans)                       */
 /* ------------------------------------------------------------------ */
-function EmptyState() {
+function OnboardingCard({ scanUrl, setScanUrl, onScan, scanning }: {
+  scanUrl: string;
+  setScanUrl: (v: string) => void;
+  onScan: () => void;
+  scanning: boolean;
+}) {
   return (
-    <div className="text-center py-16">
-      <svg className="w-16 h-16 mx-auto text-neutral-700 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-      </svg>
-      <h3 className="text-lg font-semibold text-white mb-2">No scans yet</h3>
-      <p className="text-sm text-neutral-500 mb-6 max-w-sm mx-auto">
-        Enter a URL above and click Scan to run your first accessibility, security, and performance audit.
-      </p>
+    <div className="max-w-2xl mx-auto mt-12">
+      <div className="rounded-2xl border border-neutral-800 bg-gradient-to-b from-neutral-900 to-neutral-950 p-10 text-center">
+        <div className="w-16 h-16 rounded-2xl bg-orange-500/10 border border-orange-500/20 flex items-center justify-center mx-auto mb-6">
+          <svg className="w-8 h-8 text-orange-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          </svg>
+        </div>
+        <h2 className="text-2xl font-bold text-white mb-2">Run your first scan</h2>
+        <p className="text-neutral-400 mb-8 max-w-md mx-auto">
+          Enter a URL to scan your app for accessibility, security, and performance issues. Results in under 30 seconds.
+        </p>
+        <div className="flex gap-2 max-w-lg mx-auto">
+          <input
+            type="url"
+            placeholder="https://your-app.com"
+            value={scanUrl}
+            onChange={(e) => setScanUrl(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && onScan()}
+            className="flex-1 rounded-lg border border-neutral-700 bg-neutral-800 px-4 py-3 text-sm text-white placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all"
+          />
+          <Button onClick={onScan} loading={scanning} disabled={!scanUrl.trim()} size="lg">
+            Scan
+          </Button>
+        </div>
+        <div className="mt-6 flex flex-wrap items-center justify-center gap-4 text-neutral-500 text-xs">
+          {["200+ checks", "WCAG 2.2 AA", "OWASP Top 10", "Core Web Vitals"].map((item) => (
+            <span key={item} className="flex items-center gap-1.5">
+              <svg className="w-3.5 h-3.5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+              {item}
+            </span>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }
@@ -189,7 +221,7 @@ export default function DashboardPage() {
           score: s.overallScore ?? 0,
           date: s.createdAt,
           status: s.status,
-          violations: 0,
+          ...(s.violationCount != null && s.violationCount > 0 ? { violations: s.violationCount } : {}),
         }))
       );
 
@@ -260,6 +292,23 @@ export default function DashboardPage() {
     );
   }
 
+  // Show onboarding flow when user has 0 scans
+  const totalScansCount = stats.find((s) => s.label === "Total Scans");
+  const hasNoScans = recentScans.length === 0 && totalScansCount?.value === "0";
+
+  if (hasNoScans) {
+    return (
+      <div className="max-w-6xl mx-auto space-y-8">
+        {error && <ErrorBanner message={error} onRetry={fetchData} />}
+        <div>
+          <h1 className="text-2xl font-bold text-white">Dashboard</h1>
+          <p className="text-sm text-neutral-400 mt-1">Welcome to PreShip</p>
+        </div>
+        <OnboardingCard scanUrl={scanUrl} setScanUrl={setScanUrl} onScan={handleScan} scanning={scanning} />
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-6xl mx-auto space-y-8">
       {error && <ErrorBanner message={error} onRetry={fetchData} />}
@@ -318,15 +367,11 @@ export default function DashboardPage() {
             View all
           </a>
         </div>
-        {recentScans.length > 0 ? (
-          <div className="space-y-2">
-            {recentScans.map((scan: any) => (
-              <ScanCard key={scan.id} {...scan} />
-            ))}
-          </div>
-        ) : (
-          <EmptyState />
-        )}
+        <div className="space-y-2">
+          {recentScans.map((scan: any) => (
+            <ScanCard key={scan.id} {...scan} />
+          ))}
+        </div>
       </div>
     </div>
   );

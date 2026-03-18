@@ -25,6 +25,9 @@ export function calculateCategoryScores(
     "accessibility",
     "security",
     "performance",
+    "seo",
+    "privacy",
+    "mobile",
   ];
 
   return categories.map((category) => {

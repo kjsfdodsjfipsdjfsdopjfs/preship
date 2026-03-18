@@ -1,4 +1,6 @@
-import puppeteer, { type Page, type Browser } from "puppeteer-core";
+import puppeteerExtra from "puppeteer-extra";
+import StealthPlugin from "puppeteer-extra-plugin-stealth";
+import { type Page, type Browser } from "puppeteer-core";
 import {
   DEFAULT_SCAN_OPTIONS,
   type ScanResult,
@@ -12,11 +14,17 @@ import {
   collectPerformanceMetrics,
   analyzePerformance,
 } from "./performance";
+import { runSeoChecks } from "./seo";
+import { runPrivacyChecks } from "./privacy";
+import { runMobileChecks } from "./mobile";
 import { crawlSite } from "./crawler";
 import { buildReport } from "./reporter";
 import { generateFixSuggestions } from "./fix-suggestions";
 import type { ScannerConfig, PerformanceMetrics } from "./types";
 import { validateUrl } from "./validate-url";
+
+// Configure puppeteer-extra with stealth plugin to bypass bot detection
+puppeteerExtra.use(StealthPlugin());
 
 export { runAccessibilityChecks } from "./accessibility";
 export { runSecurityChecks } from "./security";
@@ -25,6 +33,9 @@ export {
   analyzePerformance,
   calculatePerformanceScore,
 } from "./performance";
+export { runSeoChecks } from "./seo";
+export { runPrivacyChecks } from "./privacy";
+export { runMobileChecks } from "./mobile";
 export { crawlSite } from "./crawler";
 export { generateFixSuggestions } from "./fix-suggestions";
 export {
@@ -43,9 +54,42 @@ const DEFAULT_PAGE_TIMEOUT = 30000;
 const MAX_SCAN_TIMEOUT = 300000;
 
 /**
+ * Realistic user agents for viewport randomization to avoid bot detection.
+ */
+const USER_AGENTS = [
+  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+  "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+];
+
+/**
+ * Common desktop viewport sizes for randomization.
+ */
+const VIEWPORTS = [
+  { width: 1920, height: 1080 },
+  { width: 1440, height: 900 },
+  { width: 1536, height: 864 },
+  { width: 1366, height: 768 },
+  { width: 1280, height: 720 },
+];
+
+/**
+ * Pick a random element from an array.
+ */
+function pickRandom<T>(arr: T[]): T {
+  return arr[Math.floor(Math.random() * arr.length)];
+}
+
+/**
  * Main scanner entry point. Takes a URL, launches a headless browser,
- * runs accessibility/security/performance checks across discovered pages,
- * generates fix suggestions, and returns structured results.
+ * runs accessibility/security/performance/seo/privacy/mobile checks
+ * across discovered pages, generates fix suggestions, and returns
+ * structured results.
+ *
+ * Uses puppeteer-extra with stealth plugin to bypass bot protection
+ * on sites like Stripe, GitHub, and Vercel.
  *
  * This is the primary public API for the scanner package.
  *
@@ -57,7 +101,7 @@ const MAX_SCAN_TIMEOUT = 300000;
  * ```typescript
  * const result = await scan('https://example.com', {
  *   maxPages: 5,
- *   categories: ['accessibility', 'security'],
+ *   categories: ['accessibility', 'security', 'seo'],
  *   includeFixSuggestions: true,
  * });
  * console.log(`Score: ${result.overallScore}/100`);
@@ -79,12 +123,16 @@ export async function scan(
     // Validate URL against SSRF attacks (blocks private IPs, metadata endpoints, non-HTTP protocols)
     await validateUrl(url);
 
-    // Launch browser with security sandbox disabled for container environments
+    // Select a random realistic user agent and viewport for stealth
+    const stealthUserAgent = config.userAgent || pickRandom(USER_AGENTS);
+    const stealthViewport = config.viewport || pickRandom(VIEWPORTS);
+
+    // Launch browser with puppeteer-extra stealth plugin for bot protection bypass
     const executablePath = process.env.PUPPETEER_EXECUTABLE_PATH
       || process.env.CHROMIUM_PATH
       || "/usr/bin/chromium";
 
-    browser = await puppeteer.launch({
+    browser = await puppeteerExtra.launch({
       headless: "new",
       executablePath,
       args: [
@@ -100,10 +148,11 @@ export async function scan(
         "--no-first-run",
         "--mute-audio",
         "--hide-scrollbars",
+        `--window-size=${stealthViewport.width},${stealthViewport.height}`,
       ],
       timeout: 60000,
       protocolTimeout: 60000,
-    });
+    }) as unknown as Browser;
 
     // Discover pages to scan
     const categories = config.categories ?? DEFAULT_SCAN_OPTIONS.categories;
@@ -113,6 +162,8 @@ export async function scan(
       // Use a dedicated page for crawling, then close it
       try {
         const crawlPage = await browser.newPage();
+        await crawlPage.setUserAgent(stealthUserAgent);
+        await crawlPage.setViewport(stealthViewport);
         crawlPage.setDefaultNavigationTimeout(DEFAULT_PAGE_TIMEOUT);
         const crawlResult = await crawlSite(
           crawlPage,
@@ -137,6 +188,9 @@ export async function scan(
     let totalAccessibilityChecks = 0;
     let totalSecurityChecks = 0;
     let totalPerformanceChecks = 0;
+    let totalSeoChecks = 0;
+    let totalPrivacyChecks = 0;
+    let totalMobileChecks = 0;
 
     // Scan each discovered page (use fresh page per URL to avoid frame issues)
     for (const pageUrl of urls) {
@@ -153,8 +207,8 @@ export async function scan(
         await validateUrl(pageUrl);
 
         const scanPage = await browser.newPage();
-        if (config.viewport) await scanPage.setViewport(config.viewport);
-        if (config.userAgent) await scanPage.setUserAgent(config.userAgent);
+        await scanPage.setUserAgent(stealthUserAgent);
+        await scanPage.setViewport(stealthViewport);
         scanPage.setDefaultNavigationTimeout(config.waitForTimeout ?? DEFAULT_PAGE_TIMEOUT);
         scanPage.setDefaultTimeout(config.waitForTimeout ?? DEFAULT_PAGE_TIMEOUT);
 
@@ -174,6 +228,9 @@ export async function scan(
         totalAccessibilityChecks += pageViolations.accessibilityChecks;
         totalSecurityChecks += pageViolations.securityChecks;
         totalPerformanceChecks += pageViolations.performanceChecks;
+        totalSeoChecks += pageViolations.seoChecks;
+        totalPrivacyChecks += pageViolations.privacyChecks;
+        totalMobileChecks += pageViolations.mobileChecks;
       } catch (pageError) {
         const message =
           pageError instanceof Error ? pageError.message : String(pageError);
@@ -181,7 +238,7 @@ export async function scan(
           `[scanner] Failed to scan page ${pageUrl}: ${message}`
         );
 
-        // Add violations for each category — severity high because we couldn't verify anything
+        // Add violations for each category -- severity high because we couldn't verify anything
         const categories = config.categories ?? DEFAULT_SCAN_OPTIONS.categories;
         for (const cat of categories) {
           allViolations.push({
@@ -197,6 +254,9 @@ export async function scan(
         totalAccessibilityChecks += 50;
         totalSecurityChecks += 15;
         totalPerformanceChecks += 10;
+        totalSeoChecks += 10;
+        totalPrivacyChecks += 5;
+        totalMobileChecks += 6;
       }
     }
 
@@ -227,6 +287,9 @@ export async function scan(
         accessibility: totalAccessibilityChecks > 0 ? totalAccessibilityChecks : 0,
         security: totalSecurityChecks > 0 ? totalSecurityChecks : 0,
         performance: totalPerformanceChecks > 0 ? totalPerformanceChecks : 0,
+        seo: totalSeoChecks > 0 ? totalSeoChecks : 0,
+        privacy: totalPrivacyChecks > 0 ? totalPrivacyChecks : 0,
+        mobile: totalMobileChecks > 0 ? totalMobileChecks : 0,
       },
     });
   } catch (error) {
@@ -281,6 +344,9 @@ interface SinglePageResult {
   accessibilityChecks: number;
   securityChecks: number;
   performanceChecks: number;
+  seoChecks: number;
+  privacyChecks: number;
+  mobileChecks: number;
 }
 
 /**
@@ -307,6 +373,9 @@ async function scanSinglePage(
   let accessibilityChecks = 0;
   let securityChecks = 0;
   let performanceChecks = 0;
+  let seoChecks = 0;
+  let privacyChecks = 0;
+  let mobileChecks = 0;
 
   // Navigate to the page
   const response = await page.goto(pageUrl, {
@@ -392,12 +461,78 @@ async function scanSinglePage(
     }
   }
 
+  // Run SEO checks
+  if (categories.includes("seo")) {
+    try {
+      const seoResult = await runSeoChecks(page, pageUrl);
+      violations.push(...seoResult.violations);
+      seoChecks += seoResult.totalChecks;
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
+      console.error(`[scanner] SEO check failed on ${pageUrl}:`, error);
+      violations.push({
+        id: `seo-error-${Math.random().toString(36).slice(2, 8)}`,
+        category: "seo",
+        severity: "high",
+        rule: "check-failed",
+        message: `SEO check failed: ${msg}`,
+        url: pageUrl,
+      });
+      seoChecks += 10;
+    }
+  }
+
+  // Run privacy checks
+  if (categories.includes("privacy")) {
+    try {
+      const privacyResult = await runPrivacyChecks(page, pageUrl);
+      violations.push(...privacyResult.violations);
+      privacyChecks += privacyResult.totalChecks;
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
+      console.error(`[scanner] Privacy check failed on ${pageUrl}:`, error);
+      violations.push({
+        id: `privacy-error-${Math.random().toString(36).slice(2, 8)}`,
+        category: "privacy",
+        severity: "high",
+        rule: "check-failed",
+        message: `Privacy check failed: ${msg}`,
+        url: pageUrl,
+      });
+      privacyChecks += 5;
+    }
+  }
+
+  // Run mobile checks (uses its own viewport, so run last)
+  if (categories.includes("mobile")) {
+    try {
+      const mobileResult = await runMobileChecks(page, pageUrl);
+      violations.push(...mobileResult.violations);
+      mobileChecks += mobileResult.totalChecks;
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
+      console.error(`[scanner] Mobile check failed on ${pageUrl}:`, error);
+      violations.push({
+        id: `mobile-error-${Math.random().toString(36).slice(2, 8)}`,
+        category: "mobile",
+        severity: "high",
+        rule: "check-failed",
+        message: `Mobile check failed: ${msg}`,
+        url: pageUrl,
+      });
+      mobileChecks += 6;
+    }
+  }
+
   return {
     violations,
     metrics,
     accessibilityChecks,
     securityChecks,
     performanceChecks,
+    seoChecks,
+    privacyChecks,
+    mobileChecks,
   };
 }
 
