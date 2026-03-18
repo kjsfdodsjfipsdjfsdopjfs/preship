@@ -7,12 +7,12 @@ import Badge from "@/components/Badge";
 import ScoreCircle from "@/components/ScoreCircle";
 import ViolationCard from "@/components/ViolationCard";
 import CodeBlock from "@/components/CodeBlock";
-import { apiFetch } from "@/hooks/useApi";
+import { apiFetch, API_BASE } from "@/hooks/useApi";
 
 /* ------------------------------------------------------------------ */
 /* Types                                                               */
 /* ------------------------------------------------------------------ */
-type Severity = "critical" | "serious" | "moderate" | "minor";
+type Severity = "critical" | "high" | "serious" | "medium" | "moderate" | "low" | "minor" | "info";
 
 interface Violation {
   id: string;
@@ -27,7 +27,7 @@ interface Violation {
   autoFixable?: boolean;
 }
 
-const severityOrder: Record<Severity, number> = { critical: 0, serious: 1, moderate: 2, minor: 3 };
+const severityOrder: Record<string, number> = { critical: 0, high: 0, serious: 1, medium: 1, moderate: 2, low: 2, minor: 3, info: 3 };
 
 /* ------------------------------------------------------------------ */
 /* Loading skeleton                                                    */
@@ -145,9 +145,9 @@ export default function ScanDetailPage() {
 
       const results = data.results ?? {};
       const cats: any[] = results.categories ?? [];
-      const a11y = cats.find((c: any) => c.name === "accessibility" || c.id === "accessibility");
-      const sec = cats.find((c: any) => c.name === "security" || c.id === "security");
-      const perf = cats.find((c: any) => c.name === "performance" || c.id === "performance");
+      const a11y = cats.find((c: any) => c.category === "accessibility" || c.name === "accessibility" || c.id === "accessibility");
+      const sec = cats.find((c: any) => c.category === "security" || c.name === "security" || c.id === "security");
+      const perf = cats.find((c: any) => c.category === "performance" || c.name === "performance" || c.id === "performance");
 
       setScanData({
         id: data.scanId,
@@ -235,7 +235,7 @@ export default function ScanDetailPage() {
     setDownloading(true);
     try {
       const token = typeof window !== "undefined" ? localStorage.getItem("auth_token") : null;
-      const { API_BASE } = await import("@/hooks/useApi");
+      // API_BASE imported at top of file
       const res = await fetch(`${API_BASE}/api/scans/${scanId}/report`, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
@@ -255,7 +255,7 @@ export default function ScanDetailPage() {
   };
 
   const { severityCounts, categoryCounts, autoFixable } = useMemo(() => {
-    const severity = { critical: 0, serious: 0, moderate: 0, minor: 0 };
+    const severity: Record<string, number> = { critical: 0, high: 0, medium: 0, low: 0, info: 0 };
     const category = { accessibility: 0, security: 0, performance: 0 };
     const fixable: Violation[] = [];
 
@@ -379,10 +379,10 @@ export default function ScanDetailPage() {
             <span className="text-sm text-neutral-400 mr-2">Severity:</span>
             {([
               ["all", `All (${violations.length})`, "bg-neutral-700 text-white", "text-neutral-500 hover:text-white"],
-              ["critical", `Critical (${severityCounts.critical})`, "bg-red-500/20 text-red-400", "text-neutral-500 hover:text-red-400"],
-              ["serious", `Serious (${severityCounts.serious})`, "bg-orange-500/20 text-orange-400", "text-neutral-500 hover:text-orange-400"],
-              ["moderate", `Moderate (${severityCounts.moderate})`, "bg-yellow-500/20 text-yellow-400", "text-neutral-500 hover:text-yellow-400"],
-              ["minor", `Minor (${severityCounts.minor})`, "bg-blue-500/20 text-blue-400", "text-neutral-500 hover:text-blue-400"],
+              ["critical", `Critical (${(severityCounts.critical ?? 0)})`, "bg-red-500/20 text-red-400", "text-neutral-500 hover:text-red-400"],
+              ["high", `High (${(severityCounts.high ?? 0)})`, "bg-orange-500/20 text-orange-400", "text-neutral-500 hover:text-orange-400"],
+              ["medium", `Medium (${(severityCounts.medium ?? 0)})`, "bg-yellow-500/20 text-yellow-400", "text-neutral-500 hover:text-yellow-400"],
+              ["low", `Low (${(severityCounts.low ?? 0)})`, "bg-blue-500/20 text-blue-400", "text-neutral-500 hover:text-blue-400"],
             ] as [string, string, string, string][]).map(([key, label, activeClass, inactiveClass]) => (
               <button
                 key={key}
