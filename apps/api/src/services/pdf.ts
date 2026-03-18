@@ -8,1203 +8,498 @@ import type {
   CheckCategory,
 } from "@preship/shared";
 
-// ── Brand Colors ────────────────────────────────────────────────────────
+// ── Brand Colors — Dark Theme ──────────────────────────────────────────
 
-const COLORS = {
+const C = {
+  bg: "#0F0F0F",
+  bgCard: "#1A1A1A",
+  bgAccent: "#252525",
+  border: "#2E2E2E",
+
   orange: "#F97316",
-  darkBg: "#0A0A0A",
-  white: "#FFFFFF",
-  lightGray: "#E5E7EB",
-  mediumGray: "#9CA3AF",
-  darkGray: "#374151",
-  sectionBg: "#F9FAFB",
+  orangeLight: "#FB923C",
+  orangeDim: "#C2410C",
 
-  critical: "#DC2626",
-  high: "#EA580C",
-  medium: "#D97706",
-  low: "#2563EB",
+  white: "#FFFFFF",
+  text: "#E5E5E5",
+  textMuted: "#888888",
+  textDim: "#555555",
+
+  critical: "#EF4444",
+  high: "#F97316",
+  medium: "#EAB308",
+  low: "#3B82F6",
   info: "#6B7280",
 
-  excellent: "#16A34A",
-  good: "#22C55E",
-  needsWork: "#EAB308",
-  poor: "#DC2626",
+  pass: "#22C55E",
+  fail: "#EF4444",
 
-  pass: "#16A34A",
-  fail: "#DC2626",
+  scoreGreen: "#22C55E",
+  scoreYellow: "#EAB308",
+  scoreRed: "#EF4444",
 } as const;
 
-const FONTS = {
-  regular: "Helvetica",
-  bold: "Helvetica-Bold",
-  oblique: "Helvetica-Oblique",
-  mono: "Courier",
-  monoBold: "Courier-Bold",
+const F = {
+  r: "Helvetica",
+  b: "Helvetica-Bold",
+  i: "Helvetica-Oblique",
+  m: "Courier",
+  mb: "Courier-Bold",
 } as const;
 
 // ── Helpers ─────────────────────────────────────────────────────────────
 
-function getScoreColor(score: number): string {
-  if (score >= 90) return COLORS.excellent;
-  if (score >= 70) return COLORS.good;
-  if (score >= 50) return COLORS.needsWork;
-  return COLORS.poor;
+const M = 48; // margin
+const W = 612;
+const H = 792;
+const CW = W - M * 2; // content width
+const FZ = H - 40; // footer zone
+
+function scoreColor(s: number): string {
+  if (s >= 80) return C.scoreGreen;
+  if (s >= 50) return C.scoreYellow;
+  return C.scoreRed;
 }
 
-function getScoreLabel(score: number): string {
-  if (score >= 90) return "Excellent";
-  if (score >= 70) return "Good";
-  if (score >= 50) return "Needs Work";
+function scoreLabel(s: number): string {
+  if (s >= 90) return "Excellent";
+  if (s >= 70) return "Good";
+  if (s >= 50) return "Needs Work";
   return "Poor";
 }
 
-function getSeverityColor(severity: Severity): string {
-  return COLORS[severity] ?? COLORS.info;
+function sevColor(s: Severity): string {
+  return C[s] ?? C.info;
 }
 
-function getSeverityLabel(severity: Severity): string {
-  return severity.charAt(0).toUpperCase() + severity.slice(1);
-}
-
-function formatDate(dateStr: string): string {
-  const d = new Date(dateStr);
-  return d.toLocaleDateString("en-US", {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
+function fmt(d: string): string {
+  return new Date(d).toLocaleDateString("en-US", {
+    year: "numeric", month: "short", day: "numeric",
   });
 }
 
-function truncate(str: string, maxLen: number): string {
-  if (str.length <= maxLen) return str;
-  return str.slice(0, maxLen - 3) + "...";
+function trunc(s: string, n: number): string {
+  return s.length <= n ? s : s.slice(0, n - 1) + "\u2026";
 }
 
-function getCategoryData(
-  categories: CategoryScore[],
-  cat: CheckCategory
-): CategoryScore {
-  return (
-    categories.find((c) => c.category === cat) ?? {
-      category: cat,
-      score: 0,
-      violations: 0,
-      passed: 0,
-    }
-  );
+function catData(cats: CategoryScore[], cat: CheckCategory): CategoryScore {
+  return cats.find((c) => c.category === cat) ?? { category: cat, score: 0, violations: 0, passed: 0 };
 }
 
-function groupViolationsBySeverity(
-  violations: Violation[]
-): Map<Severity, Violation[]> {
-  const order: Severity[] = ["critical", "high", "medium", "low", "info"];
-  const grouped = new Map<Severity, Violation[]>();
-  for (const sev of order) {
-    const items = violations.filter((v) => v.severity === sev);
-    if (items.length > 0) {
-      grouped.set(sev, items);
-    }
-  }
-  return grouped;
+function countSev(vs: Violation[], s: Severity): number {
+  return vs.filter((v) => v.severity === s).length;
 }
 
-function countBySeverity(
-  violations: Violation[],
-  severity: Severity
-): number {
-  return violations.filter((v) => v.severity === severity).length;
-}
-
-// ── PDF Drawing Primitives ──────────────────────────────────────────────
-
-const PAGE_MARGIN = 50;
-const PAGE_WIDTH = 612;
-const PAGE_HEIGHT = 792;
-const CONTENT_WIDTH = PAGE_WIDTH - PAGE_MARGIN * 2;
-const FOOTER_ZONE = PAGE_HEIGHT - 45;
-
-function ensureSpace(doc: PDFKit.PDFDocument, needed: number): boolean {
-  if (doc.y + needed > FOOTER_ZONE) {
-    doc.addPage();
-    doc.y = PAGE_MARGIN;
-    return true;
-  }
+function space(doc: PDFKit.PDFDocument, n: number): boolean {
+  if (doc.y + n > FZ) { doc.addPage(); doc.y = M; return true; }
   return false;
 }
 
-function drawScoreCircle(
-  doc: PDFKit.PDFDocument,
-  x: number,
-  y: number,
-  radius: number,
-  score: number,
-  options?: { fontSize?: number; showLabel?: boolean; label?: string }
+// ── Drawing ─────────────────────────────────────────────────────────────
+
+function darkPage(doc: PDFKit.PDFDocument): void {
+  doc.rect(0, 0, W, H).fill(C.bg);
+}
+
+function drawCircle(
+  doc: PDFKit.PDFDocument, x: number, y: number, r: number, score: number,
+  opts?: { size?: number; label?: string }
 ): void {
-  const color = getScoreColor(score);
-  const fontSize = options?.fontSize ?? 28;
+  const color = scoreColor(score);
+  const sz = opts?.size ?? 28;
 
+  // Track
   doc.save();
+  doc.circle(x, y, r).lineWidth(5).strokeColor(C.bgAccent).stroke();
 
-  // Background circle
-  doc.circle(x, y, radius).fill("#F3F4F6");
-
-  // Track ring
-  doc
-    .save()
-    .circle(x, y, radius - 4)
-    .lineWidth(6)
-    .strokeColor("#E5E7EB")
-    .stroke()
-    .restore();
-
-  // Score arc
+  // Arc
   if (score > 0) {
-    doc.save();
-    const startAngle = -Math.PI / 2;
-    const endAngle = startAngle + (2 * Math.PI * score) / 100;
-    const segments = Math.max(1, Math.floor(score / 2));
-    doc.lineWidth(6).strokeColor(color);
-
-    for (let i = 0; i < segments; i++) {
-      const a1 = startAngle + (endAngle - startAngle) * (i / segments);
-      const a2 = startAngle + (endAngle - startAngle) * ((i + 1) / segments);
-      const x1 = x + (radius - 4) * Math.cos(a1);
-      const y1 = y + (radius - 4) * Math.sin(a1);
-      const x2 = x + (radius - 4) * Math.cos(a2);
-      const y2 = y + (radius - 4) * Math.sin(a2);
-      doc.moveTo(x1, y1).lineTo(x2, y2).stroke();
+    const start = -Math.PI / 2;
+    const end = start + (2 * Math.PI * Math.min(score, 100)) / 100;
+    const segs = Math.max(2, Math.floor(score / 2));
+    doc.lineWidth(5).strokeColor(color);
+    for (let i = 0; i < segs; i++) {
+      const a1 = start + (end - start) * (i / segs);
+      const a2 = start + (end - start) * ((i + 1) / segs);
+      doc.moveTo(x + r * Math.cos(a1), y + r * Math.sin(a1))
+         .lineTo(x + r * Math.cos(a2), y + r * Math.sin(a2)).stroke();
     }
-    doc.restore();
-  }
-
-  // Score number
-  doc
-    .font(FONTS.bold)
-    .fontSize(fontSize)
-    .fillColor(color)
-    .text(String(score), x - radius, y - fontSize / 2 - 2, {
-      width: radius * 2,
-      align: "center",
-    });
-
-  if (options?.showLabel) {
-    doc
-      .font(FONTS.regular)
-      .fontSize(9)
-      .fillColor(COLORS.mediumGray)
-      .text("/100", x - radius, y + fontSize / 2 - 4, {
-        width: radius * 2,
-        align: "center",
-      });
-  }
-
-  doc.restore();
-
-  // Category label below circle
-  if (options?.label) {
-    doc
-      .font(FONTS.bold)
-      .fontSize(9)
-      .fillColor(COLORS.darkGray)
-      .text(options.label, x - radius - 10, y + radius + 6, {
-        width: radius * 2 + 20,
-        align: "center",
-      });
-  }
-}
-
-function drawSeverityBadge(
-  doc: PDFKit.PDFDocument,
-  x: number,
-  y: number,
-  severity: Severity
-): { width: number; height: number } {
-  const label = getSeverityLabel(severity);
-  const color = getSeverityColor(severity);
-  const paddingH = 8;
-  const paddingV = 3;
-  const fontSize = 8;
-
-  doc.font(FONTS.bold).fontSize(fontSize);
-  const textWidth = doc.widthOfString(label);
-  const badgeWidth = textWidth + paddingH * 2;
-  const badgeHeight = fontSize + paddingV * 2 + 2;
-
-  doc.roundedRect(x, y, badgeWidth, badgeHeight, 3).fill(color);
-
-  doc
-    .font(FONTS.bold)
-    .fontSize(fontSize)
-    .fillColor(COLORS.white)
-    .text(label, x + paddingH, y + paddingV + 1, {
-      width: textWidth,
-      align: "center",
-    });
-
-  return { width: badgeWidth, height: badgeHeight };
-}
-
-function drawSectionHeader(
-  doc: PDFKit.PDFDocument,
-  title: string,
-  yPos?: number
-): void {
-  const y = yPos ?? doc.y;
-  doc
-    .save()
-    .rect(PAGE_MARGIN, y, CONTENT_WIDTH, 30)
-    .fill(COLORS.darkBg);
-
-  doc
-    .font(FONTS.bold)
-    .fontSize(13)
-    .fillColor(COLORS.orange)
-    .text(title, PAGE_MARGIN + 12, y + 8, {
-      width: CONTENT_WIDTH - 24,
-    })
-    .restore();
-
-  doc.y = y + 38;
-}
-
-function drawTable(
-  doc: PDFKit.PDFDocument,
-  headers: string[],
-  rows: string[][],
-  colWidths: number[],
-  options?: { compact?: boolean }
-): void {
-  const rowHeight = options?.compact ? 18 : 22;
-  const headerHeight = options?.compact ? 22 : 26;
-  const fontSize = options?.compact ? 8 : 9;
-  const startX = PAGE_MARGIN;
-
-  ensureSpace(doc, headerHeight + rowHeight * Math.min(rows.length, 3) + 10);
-
-  // Header row
-  let xPos = startX;
-  doc.save();
-  doc
-    .rect(startX, doc.y, CONTENT_WIDTH, headerHeight)
-    .fill(COLORS.darkBg);
-
-  for (let i = 0; i < headers.length; i++) {
-    doc
-      .font(FONTS.bold)
-      .fontSize(fontSize)
-      .fillColor(COLORS.white)
-      .text(headers[i], xPos + 6, doc.y + (headerHeight - fontSize) / 2, {
-        width: colWidths[i] - 12,
-        align: i === 0 ? "left" : "center",
-      });
-    xPos += colWidths[i];
   }
   doc.restore();
-  doc.y += headerHeight;
 
-  // Data rows
-  for (let r = 0; r < rows.length; r++) {
-    ensureSpace(doc, rowHeight + 5);
+  // Number
+  doc.font(F.b).fontSize(sz).fillColor(color)
+    .text(String(score), x - r, y - sz / 2, { width: r * 2, align: "center" });
 
-    const rowY = doc.y;
-    if (r % 2 === 0) {
-      doc.save();
-      doc
-        .rect(startX, rowY, CONTENT_WIDTH, rowHeight)
-        .fill(COLORS.sectionBg);
-      doc.restore();
-    }
-
-    xPos = startX;
-    for (let c = 0; c < rows[r].length; c++) {
-      const val = rows[r][c];
-      const cellColor =
-        val === "PASS" || val === "Good"
-          ? COLORS.pass
-          : val === "FAIL" || val === "Poor" || val === "Needs Improvement"
-            ? COLORS.fail
-            : COLORS.darkBg;
-
-      doc
-        .font(c === 0 ? FONTS.bold : FONTS.regular)
-        .fontSize(fontSize)
-        .fillColor(cellColor)
-        .text(val, xPos + 6, rowY + (rowHeight - fontSize) / 2, {
-          width: colWidths[c] - 12,
-          align: c === 0 ? "left" : "center",
-        });
-      xPos += colWidths[c];
-    }
-
-    doc.y = rowY + rowHeight;
+  // Label
+  if (opts?.label) {
+    doc.font(F.r).fontSize(8).fillColor(C.textMuted)
+      .text(opts.label, x - r - 10, y + r + 8, { width: r * 2 + 20, align: "center" });
   }
-
-  doc.y += 6;
 }
 
-function drawCodeBlock(
-  doc: PDFKit.PDFDocument,
-  code: string,
-  x: number,
-  width: number
+function drawBar(
+  doc: PDFKit.PDFDocument, x: number, y: number, w: number, h: number,
+  pct: number, color: string
 ): void {
-  const truncated = truncate(code, 150);
-  doc.font(FONTS.mono).fontSize(6);
-  const textHeight = doc.heightOfString(truncated, { width: width - 16 });
-  const blockHeight = textHeight + 10;
-
-  ensureSpace(doc, blockHeight + 5);
-
-  doc.save();
-  doc
-    .roundedRect(x, doc.y, width, blockHeight, 3)
-    .fill("#1F2937");
-
-  doc
-    .font(FONTS.mono)
-    .fontSize(6)
-    .fillColor("#D1D5DB")
-    .text(truncated, x + 8, doc.y + 5, {
-      width: width - 16,
-    });
-  doc.restore();
-
-  doc.y += blockHeight + 4;
+  doc.roundedRect(x, y, w, h, h / 2).fill(C.bgAccent);
+  if (pct > 0) {
+    doc.roundedRect(x, y, Math.max(h, w * pct / 100), h, h / 2).fill(color);
+  }
 }
 
-function drawComplianceBadge(
-  doc: PDFKit.PDFDocument,
-  x: number,
-  y: number,
-  label: string,
-  pass: boolean,
-  width: number
-): void {
-  const bgColor = pass ? "#DCFCE7" : "#FEE2E2";
-  const textColor = pass ? "#166534" : "#991B1B";
-  const statusText = pass ? "PASS" : "FAIL";
-  const height = 32;
-
-  doc.save();
-  doc.roundedRect(x, y, width, height, 4).fill(bgColor);
-
-  doc
-    .font(FONTS.bold)
-    .fontSize(8)
-    .fillColor(textColor)
-    .text(label, x + 8, y + 5, { width: width - 16 });
-
-  doc
-    .font(FONTS.bold)
-    .fontSize(12)
-    .fillColor(textColor)
-    .text(statusText, x + 8, y + 16, { width: width - 16 });
-
-  doc.restore();
+function sevBadge(doc: PDFKit.PDFDocument, x: number, y: number, sev: Severity): number {
+  const label = sev.charAt(0).toUpperCase() + sev.slice(1);
+  doc.font(F.b).fontSize(7);
+  const tw = doc.widthOfString(label);
+  const bw = tw + 12;
+  doc.roundedRect(x, y, bw, 14, 3).fill(sevColor(sev));
+  doc.font(F.b).fontSize(7).fillColor(C.white).text(label, x + 6, y + 3);
+  return bw;
 }
 
-// ── Page Number Tracking ────────────────────────────────────────────────
+function header(doc: PDFKit.PDFDocument, title: string): void {
+  space(doc, 45);
+  const y = doc.y;
+  // Orange accent line
+  doc.rect(M, y, 3, 22).fill(C.orange);
+  doc.font(F.b).fontSize(14).fillColor(C.white).text(title, M + 12, y + 3);
+  doc.y = y + 32;
+}
 
-/**
- * We use bufferPages mode and draw all footers at the end,
- * so we don't need to track page numbers manually.
- */
-function drawAllFooters(doc: PDFKit.PDFDocument): void {
-  const pageCount = doc.bufferedPageRange().count;
-  for (let i = 0; i < pageCount; i++) {
+function footers(doc: PDFKit.PDFDocument): void {
+  const n = doc.bufferedPageRange().count;
+  for (let i = 0; i < n; i++) {
     doc.switchToPage(i);
-    doc
-      .save()
-      .font(FONTS.regular)
-      .fontSize(8)
-      .fillColor(COLORS.mediumGray)
-      .text("PreShip Quality Report", PAGE_MARGIN, FOOTER_ZONE + 8, {
-        width: CONTENT_WIDTH / 2,
-        align: "left",
-      })
-      .text(
-        `Page ${i + 1} of ${pageCount}`,
-        PAGE_MARGIN + CONTENT_WIDTH / 2,
-        FOOTER_ZONE + 8,
-        {
-          width: CONTENT_WIDTH / 2,
-          align: "right",
-        }
-      )
-      .restore();
+    // Thin line
+    doc.save().moveTo(M, FZ).lineTo(W - M, FZ).lineWidth(0.5).strokeColor(C.border).stroke().restore();
+    doc.font(F.r).fontSize(7).fillColor(C.textDim)
+      .text("preship.dev", M, FZ + 6, { width: CW / 2 })
+      .text(`${i + 1} / ${n}`, M + CW / 2, FZ + 6, { width: CW / 2, align: "right" });
   }
 }
 
-// ── Page Builders ───────────────────────────────────────────────────────
+// ── Cover Page ──────────────────────────────────────────────────────────
 
-function buildCoverPage(doc: PDFKit.PDFDocument, result: ScanResult): void {
-  // Full dark background
-  doc.rect(0, 0, PAGE_WIDTH, PAGE_HEIGHT).fill(COLORS.darkBg);
+function cover(doc: PDFKit.PDFDocument, r: ScanResult): void {
+  darkPage(doc);
 
-  // Logo bar
-  const logoX = PAGE_WIDTH / 2 - 80;
-  const logoY = 80;
-  doc.roundedRect(logoX, logoY, 160, 44, 8).fill(COLORS.orange);
-  doc
-    .font(FONTS.bold)
-    .fontSize(22)
-    .fillColor(COLORS.white)
-    .text("PreShip", logoX, logoY + 12, { width: 160, align: "center" });
+  // Orange gradient strip at top
+  doc.rect(0, 0, W, 6).fill(C.orange);
 
-  // Title
-  doc
-    .font(FONTS.bold)
-    .fontSize(32)
-    .fillColor(COLORS.white)
-    .text("Quality Report", PAGE_MARGIN, 160, {
-      width: CONTENT_WIDTH,
-      align: "center",
-    });
+  // "PRESHIP" wordmark
+  doc.font(F.b).fontSize(14).fillColor(C.orange)
+    .text("PRESHIP", M, 50, { width: CW, align: "left" });
+
+  // "Quality Report" title
+  doc.font(F.b).fontSize(36).fillColor(C.white)
+    .text("Quality Report", M, 90, { width: CW });
 
   // URL
-  doc
-    .font(FONTS.regular)
-    .fontSize(14)
-    .fillColor(COLORS.orange)
-    .text(result.url, PAGE_MARGIN, 210, {
-      width: CONTENT_WIDTH,
-      align: "center",
-    });
+  doc.font(F.r).fontSize(13).fillColor(C.orangeLight)
+    .text(r.url, M, 140, { width: CW });
 
-  // ── Large score circle ──
-  const circleY = 340;
-  drawScoreCircle(doc, PAGE_WIDTH / 2, circleY, 80, result.overallScore, {
-    fontSize: 44,
-    showLabel: true,
-  });
+  // Thin separator
+  doc.moveTo(M, 170).lineTo(W - M, 170).lineWidth(0.5).strokeColor(C.border).stroke();
 
-  // Score label
-  const scoreColor = getScoreColor(result.overallScore);
-  doc
-    .font(FONTS.bold)
-    .fontSize(18)
-    .fillColor(scoreColor)
-    .text(getScoreLabel(result.overallScore), PAGE_MARGIN, circleY + 90, {
-      width: CONTENT_WIDTH,
-      align: "center",
-    });
+  // Big score circle
+  drawCircle(doc, W / 2, 290, 70, r.overallScore, { size: 42 });
+  doc.font(F.b).fontSize(16).fillColor(scoreColor(r.overallScore))
+    .text(scoreLabel(r.overallScore), M, 370, { width: CW, align: "center" });
+  doc.font(F.r).fontSize(9).fillColor(C.textMuted)
+    .text("Overall Quality Score", M, 390, { width: CW, align: "center" });
 
-  doc
-    .font(FONTS.regular)
-    .fontSize(10)
-    .fillColor(COLORS.mediumGray)
-    .text("Overall Quality Score", PAGE_MARGIN, circleY + 112, {
-      width: CONTENT_WIDTH,
-      align: "center",
-    });
-
-  // ── Severity summary bar ──
-  const barY = circleY + 145;
-  const critical = countBySeverity(result.violations, "critical");
-  const high = countBySeverity(result.violations, "high");
-  const medium = countBySeverity(result.violations, "medium");
-  const low = countBySeverity(result.violations, "low");
-
-  const items = [
-    { count: critical, label: "Critical", color: COLORS.critical },
-    { count: high, label: "High", color: COLORS.high },
-    { count: medium, label: "Medium", color: COLORS.medium },
-    { count: low, label: "Low", color: COLORS.low },
+  // Severity summary — horizontal pills
+  const sevs = [
+    { s: "critical" as Severity, n: countSev(r.violations, "critical") },
+    { s: "high" as Severity, n: countSev(r.violations, "high") },
+    { s: "medium" as Severity, n: countSev(r.violations, "medium") },
+    { s: "low" as Severity, n: countSev(r.violations, "low") },
   ];
+  const pillW = 110;
+  const pillH = 28;
+  const pillY = 430;
+  const pillStartX = (W - pillW * 4 - 12 * 3) / 2;
 
-  const barWidth = 380;
-  const barStartX = (PAGE_WIDTH - barWidth) / 2;
-  const segW = barWidth / items.length;
-
-  // Background bar
-  doc
-    .roundedRect(barStartX, barY, barWidth, 36, 6)
-    .fill("#1A1A2E");
-
-  for (let i = 0; i < items.length; i++) {
-    const ix = barStartX + i * segW;
-
-    // Colored dot
-    doc.circle(ix + 14, barY + 18, 5).fill(items[i].color);
-
-    doc
-      .font(FONTS.bold)
-      .fontSize(12)
-      .fillColor(COLORS.white)
-      .text(String(items[i].count), ix + 22, barY + 6, { width: segW - 26 });
-
-    doc
-      .font(FONTS.regular)
-      .fontSize(7)
-      .fillColor(COLORS.mediumGray)
-      .text(items[i].label, ix + 22, barY + 21, { width: segW - 26 });
+  for (let i = 0; i < sevs.length; i++) {
+    const px = pillStartX + i * (pillW + 12);
+    doc.roundedRect(px, pillY, pillW, pillH, 6).fill(C.bgCard);
+    doc.circle(px + 14, pillY + pillH / 2, 4).fill(sevColor(sevs[i].s));
+    doc.font(F.b).fontSize(14).fillColor(C.white)
+      .text(String(sevs[i].n), px + 24, pillY + 4, { width: 30 });
+    doc.font(F.r).fontSize(8).fillColor(C.textMuted)
+      .text(sevs[i].s.charAt(0).toUpperCase() + sevs[i].s.slice(1), px + 52, pillY + 8, { width: pillW - 58 });
   }
 
-  // ── Scan metadata ──
-  const metaY = barY + 56;
-  const metaItems = [
-    { label: "Scanned", value: formatDate(result.createdAt) },
-    { label: "Duration", value: `${(result.duration / 1000).toFixed(1)}s` },
-    { label: "Pages", value: String(result.pagesScanned) },
-  ];
+  // Metadata footer
+  const metaY = 490;
+  const meta = [
+    `Scanned: ${fmt(r.createdAt)}`,
+    `Duration: ${(r.duration / 1000).toFixed(1)}s`,
+    `Pages: ${r.pagesScanned}`,
+    `Violations: ${r.violations.length}`,
+  ].join("  \u00B7  ");
 
-  doc
-    .font(FONTS.regular)
-    .fontSize(9)
-    .fillColor(COLORS.mediumGray);
+  doc.font(F.r).fontSize(8).fillColor(C.textDim)
+    .text(meta, M, metaY, { width: CW, align: "center" });
 
-  const metaStr = metaItems.map((m) => `${m.label}: ${m.value}`).join("   \u2022   ");
-  doc.text(metaStr, PAGE_MARGIN, metaY, {
-    width: CONTENT_WIDTH,
-    align: "center",
-  });
-
-  // Footer branding
-  doc
-    .font(FONTS.regular)
-    .fontSize(9)
-    .fillColor(COLORS.mediumGray)
-    .text(
-      "Generated by PreShip \u2014 preship.dev",
-      PAGE_MARGIN,
-      PAGE_HEIGHT - 50,
-      { width: CONTENT_WIDTH, align: "center" }
-    );
+  // Bottom branding
+  doc.font(F.r).fontSize(8).fillColor(C.textDim)
+    .text("Generated by PreShip \u2014 preship.dev", M, H - 50, { width: CW, align: "center" });
 }
 
-function buildSummaryPage(
-  doc: PDFKit.PDFDocument,
-  result: ScanResult
-): void {
+// ── Summary Page ────────────────────────────────────────────────────────
+
+function summary(doc: PDFKit.PDFDocument, r: ScanResult): void {
   doc.addPage();
+  darkPage(doc);
+  doc.y = M;
 
-  drawSectionHeader(doc, "Executive Summary");
+  header(doc, "Executive Summary");
 
-  // ── Category score circles in a row ──
-  const categories: { label: string; cat: CheckCategory }[] = [
-    { label: "Accessibility", cat: "accessibility" },
-    { label: "Security", cat: "security" },
-    { label: "Performance", cat: "performance" },
+  // Category circles row
+  const cats: { l: string; c: CheckCategory }[] = [
+    { l: "Accessibility", c: "accessibility" },
+    { l: "Security", c: "security" },
+    { l: "Performance", c: "performance" },
   ];
 
-  const circleSpacing = CONTENT_WIDTH / 3;
-  const circleBaseX = PAGE_MARGIN + circleSpacing / 2;
-  const circleY = doc.y + 30;
+  const spacing = CW / cats.length;
+  const cy = doc.y + 35;
 
-  for (let i = 0; i < categories.length; i++) {
-    const catData = getCategoryData(result.categories, categories[i].cat);
-    drawScoreCircle(
-      doc,
-      circleBaseX + i * circleSpacing,
-      circleY,
-      24,
-      catData.score,
-      { fontSize: 16, showLabel: false, label: categories[i].label }
-    );
+  for (let i = 0; i < cats.length; i++) {
+    const cd = catData(r.categories, cats[i].c);
+    drawCircle(doc, M + spacing / 2 + i * spacing, cy, 28, cd.score, { size: 18, label: cats[i].l });
   }
 
-  doc.y = circleY + 44;
+  doc.y = cy + 55;
 
-  // ── Key statistics compact table ──
-  doc.y += 10;
-
-  const totalViolations = result.violations.length;
-  const criticalIssues = countBySeverity(result.violations, "critical");
-  const autoFixable = result.suggestions.filter(
-    (s) => s.confidence >= 0.8
-  ).length;
-
-  const statsRows = [
-    ["Total Violations", String(totalViolations)],
-    ["Critical Issues", String(criticalIssues)],
-    ["Auto-Fixable", String(autoFixable)],
-    ["Pages Scanned", String(result.pagesScanned)],
-    ["Scan Duration", `${(result.duration / 1000).toFixed(1)}s`],
+  // Stats grid — 2x2 dark cards
+  const stats = [
+    { label: "Total Violations", value: String(r.violations.length) },
+    { label: "Critical Issues", value: String(countSev(r.violations, "critical")) },
+    { label: "Pages Scanned", value: String(r.pagesScanned) },
+    { label: "Auto-Fixable", value: String(r.suggestions.filter((s) => s.confidence >= 0.8).length) },
   ];
 
-  drawTable(
-    doc,
-    ["Metric", "Value"],
-    statsRows,
-    [CONTENT_WIDTH * 0.6, CONTENT_WIDTH * 0.4],
-    { compact: true }
-  );
+  const cardW = (CW - 12) / 2;
+  const cardH = 50;
 
-  doc.y += 6;
-
-  // ── Compliance badges row ──
-  const a11yViolations = result.violations.filter(
-    (v) => v.category === "accessibility"
-  );
-  const criticalA11y = a11yViolations.filter(
-    (v) => v.severity === "critical"
-  ).length;
-  const wcagPass = criticalA11y === 0;
-
-  const secViolations = result.violations.filter(
-    (v) => v.category === "security"
-  );
-  const criticalSec = secViolations.filter(
-    (v) => v.severity === "critical"
-  ).length;
-  const owaspPass = criticalSec === 0;
-
-  const perfData = getCategoryData(result.categories, "performance");
-  const cwvPass = perfData.score >= 70;
-
-  const badgeW = (CONTENT_WIDTH - 16) / 3;
-  const badgeY = doc.y;
-
-  drawComplianceBadge(doc, PAGE_MARGIN, badgeY, "WCAG 2.1 AA", wcagPass, badgeW);
-  drawComplianceBadge(
-    doc,
-    PAGE_MARGIN + badgeW + 8,
-    badgeY,
-    "Security (OWASP)",
-    owaspPass,
-    badgeW
-  );
-  drawComplianceBadge(
-    doc,
-    PAGE_MARGIN + (badgeW + 8) * 2,
-    badgeY,
-    "Core Web Vitals",
-    cwvPass,
-    badgeW
-  );
-
-  doc.y = badgeY + 42;
-
-  // ── Per-category one-liner if no violations ──
-  doc.y += 8;
-  for (const cat of categories) {
-    const catViolations = result.violations.filter(
-      (v) => v.category === cat.cat
-    );
-    if (catViolations.length === 0) {
-      doc
-        .font(FONTS.regular)
-        .fontSize(9)
-        .fillColor(COLORS.pass)
-        .text(
-          `\u2713  ${cat.label}: No issues found`,
-          PAGE_MARGIN,
-          doc.y,
-          { width: CONTENT_WIDTH }
-        );
-      doc.y += 4;
-    }
+  for (let i = 0; i < stats.length; i++) {
+    const cx = M + (i % 2) * (cardW + 12);
+    const cyy = doc.y + Math.floor(i / 2) * (cardH + 8);
+    doc.roundedRect(cx, cyy, cardW, cardH, 6).fill(C.bgCard);
+    doc.font(F.b).fontSize(22).fillColor(C.orange)
+      .text(stats[i].value, cx + 16, cyy + 8, { width: cardW - 32 });
+    doc.font(F.r).fontSize(8).fillColor(C.textMuted)
+      .text(stats[i].label, cx + 16, cyy + 34, { width: cardW - 32 });
   }
 
-  // ── Disclaimer (compact) ──
-  doc.y += 12;
+  doc.y += Math.ceil(stats.length / 2) * (cardH + 8) + 12;
 
-  doc.save();
-  const disclaimerH = 36;
-  doc
-    .roundedRect(PAGE_MARGIN, doc.y, CONTENT_WIDTH, disclaimerH, 4)
-    .fill("#FEF3C7");
+  // Compliance badges — horizontal
+  const a11y = r.violations.filter((v) => v.category === "accessibility");
+  const sec = r.violations.filter((v) => v.category === "security");
+  const perf = catData(r.categories, "performance");
 
-  doc
-    .font(FONTS.bold)
-    .fontSize(7)
-    .fillColor("#92400E")
-    .text("Disclaimer:", PAGE_MARGIN + 8, doc.y + 6, {
-      continued: true,
-      width: CONTENT_WIDTH - 16,
-    })
-    .font(FONTS.regular)
-    .text(
-      " This automated scan covers approximately 57% of WCAG issues. Manual testing is recommended for full compliance. This report does not constitute legal advice."
-    );
-  doc.restore();
+  const badges = [
+    { label: "WCAG 2.1 AA", pass: a11y.filter((v) => v.severity === "critical").length === 0 },
+    { label: "OWASP Security", pass: sec.filter((v) => v.severity === "critical").length === 0 },
+    { label: "Core Web Vitals", pass: perf.score >= 70 },
+  ];
 
-  doc.y += disclaimerH + 4;
+  const bw = (CW - 16) / 3;
+  const by = doc.y;
+
+  for (let i = 0; i < badges.length; i++) {
+    const bx = M + i * (bw + 8);
+    const bg = badges[i].pass ? "#0A2E1A" : "#2E0A0A";
+    const tc = badges[i].pass ? C.pass : C.fail;
+    const status = badges[i].pass ? "PASS" : "FAIL";
+
+    doc.roundedRect(bx, by, bw, 36, 4).fill(bg);
+    doc.font(F.r).fontSize(7).fillColor(tc)
+      .text(badges[i].label, bx + 10, by + 6, { width: bw - 20 });
+    doc.font(F.b).fontSize(13).fillColor(tc)
+      .text(status, bx + 10, by + 18, { width: bw - 20 });
+  }
+
+  doc.y = by + 48;
+
+  // Category score bars
+  header(doc, "Score Breakdown");
+
+  const allCats: { l: string; c: CheckCategory }[] = [
+    { l: "Accessibility", c: "accessibility" },
+    { l: "Security", c: "security" },
+    { l: "Performance", c: "performance" },
+    { l: "SEO", c: "seo" },
+    { l: "Privacy", c: "privacy" },
+    { l: "Mobile", c: "mobile" },
+  ];
+
+  for (const cat of allCats) {
+    const cd = catData(r.categories, cat.c);
+    if (cd.score === 0 && cd.passed === 0 && cd.violations === 0) continue;
+
+    space(doc, 24);
+    const ry = doc.y;
+
+    doc.font(F.r).fontSize(9).fillColor(C.text)
+      .text(cat.l, M, ry + 2, { width: 90 });
+
+    drawBar(doc, M + 95, ry + 2, CW - 145, 10, cd.score, scoreColor(cd.score));
+
+    doc.font(F.b).fontSize(9).fillColor(scoreColor(cd.score))
+      .text(String(cd.score), W - M - 30, ry + 1, { width: 30, align: "right" });
+
+    doc.y = ry + 22;
+  }
 }
 
-function buildViolationsSection(
-  doc: PDFKit.PDFDocument,
-  title: string,
-  category: CheckCategory,
-  result: ScanResult
+// ── Violations ──────────────────────────────────────────────────────────
+
+function violations(
+  doc: PDFKit.PDFDocument, title: string, cat: CheckCategory, r: ScanResult
 ): void {
-  const violations = result.violations.filter(
-    (v) => v.category === category
-  );
+  const vs = r.violations.filter((v) => v.category === cat);
+  if (vs.length === 0) return;
 
-  // Skip the entire section if there are no violations
-  if (violations.length === 0) {
-    return;
-  }
+  space(doc, 100);
+  header(doc, `${title} (${vs.length} issues)`);
 
-  // Only add page if less than 200px remaining
-  ensureSpace(doc, 200);
+  // Group by severity
+  const order: Severity[] = ["critical", "high", "medium", "low", "info"];
 
-  const catData = getCategoryData(result.categories, category);
-  drawSectionHeader(doc, title);
+  for (const sev of order) {
+    const items = vs.filter((v) => v.severity === sev);
+    if (items.length === 0) continue;
 
-  // Compact score summary line
-  const scoreColor = getScoreColor(catData.score);
-  doc
-    .font(FONTS.bold)
-    .fontSize(10)
-    .fillColor(scoreColor)
-    .text(`Score: ${catData.score}/100`, PAGE_MARGIN, doc.y, {
-      continued: true,
-    })
-    .font(FONTS.regular)
-    .fillColor(COLORS.darkGray)
-    .text(
-      `   \u2022  ${catData.passed} passed   \u2022  ${catData.violations} violations`
-    );
+    space(doc, 40);
 
-  doc.y += 8;
+    // Severity group label
+    doc.font(F.b).fontSize(10).fillColor(sevColor(sev))
+      .text(`${sev.charAt(0).toUpperCase() + sev.slice(1)} \u2014 ${items.length}`, M, doc.y);
+    doc.y += 6;
 
-  // Group violations by severity
-  const grouped = groupViolationsBySeverity(violations);
+    for (const v of items) {
+      space(doc, 50);
+      const vy = doc.y;
 
-  for (const [severity, items] of grouped) {
-    ensureSpace(doc, 50);
+      // Left accent bar
+      const cardX = M;
+      const textX = M + 8;
+      const textW = CW - 12;
 
-    // Severity group header
-    doc
-      .font(FONTS.bold)
-      .fontSize(10)
-      .fillColor(getSeverityColor(severity))
-      .text(
-        `${getSeverityLabel(severity)} (${items.length})`,
-        PAGE_MARGIN,
-        doc.y
-      );
-    doc.y += 4;
-
-    for (const violation of items) {
-      ensureSpace(doc, 60);
-
-      const cardStartY = doc.y;
-      const cardX = PAGE_MARGIN + 4;
-      const textX = cardX + 10;
-      const textW = CONTENT_WIDTH - 18;
-
-      // Severity badge + rule
-      drawSeverityBadge(doc, textX, cardStartY, severity);
-
-      if (violation.rule) {
-        doc
-          .font(FONTS.mono)
-          .fontSize(7)
-          .fillColor(COLORS.mediumGray)
-          .text(
-            truncate(violation.rule, 60),
-            textX + 65,
-            cardStartY + 3,
-            { width: textW - 70 }
-          );
+      // Rule name (monospace, muted)
+      if (v.rule) {
+        doc.font(F.m).fontSize(7).fillColor(C.textDim)
+          .text(trunc(v.rule, 70), textX, vy);
+        doc.y = vy + 11;
       }
-
-      doc.y = cardStartY + 18;
 
       // Message
-      doc
-        .font(FONTS.regular)
-        .fontSize(9)
-        .fillColor(COLORS.darkBg)
-        .text(violation.message, textX, doc.y, { width: textW });
-      doc.y += 3;
+      doc.font(F.r).fontSize(8.5).fillColor(C.text)
+        .text(v.message, textX, doc.y, { width: textW });
 
-      // Affected element (only for critical/high severity)
-      if (violation.element && (severity === "critical" || severity === "high")) {
-        doc
-          .font(FONTS.bold)
-          .fontSize(7)
-          .fillColor(COLORS.darkGray)
-          .text("Element:", textX, doc.y);
-        doc.y += 1;
-        drawCodeBlock(doc, truncate(violation.element, 150), textX, textW);
-      }
-
-      // Fix suggestion inline (description only, no code snippet)
-      const suggestion = result.suggestions.find(
-        (s) => s.violationId === violation.id
-      );
-      if (suggestion) {
-        ensureSpace(doc, 30);
-        doc
-          .font(FONTS.bold)
-          .fontSize(7)
-          .fillColor(COLORS.pass)
-          .text("Fix:", textX, doc.y);
-        doc.y += 1;
-        doc
-          .font(FONTS.regular)
-          .fontSize(8)
-          .fillColor(COLORS.darkGray)
-          .text(suggestion.description, textX + 4, doc.y, {
-            width: textW - 8,
-          });
+      // Element (critical/high only)
+      if (v.element && (sev === "critical" || sev === "high")) {
         doc.y += 2;
+        const code = trunc(v.element, 120);
+        doc.font(F.m).fontSize(6.5);
+        const codeH = doc.heightOfString(code, { width: textW - 16 }) + 8;
+        doc.roundedRect(textX, doc.y, textW, codeH, 3).fill(C.bgAccent);
+        doc.font(F.m).fontSize(6.5).fillColor(C.textMuted)
+          .text(code, textX + 8, doc.y + 4, { width: textW - 16 });
+        doc.y += codeH;
       }
 
-      // Draw colored left accent bar
-      const cardEndY = doc.y;
-      doc
-        .save()
-        .rect(cardX, cardStartY, 3, cardEndY - cardStartY)
-        .fill(getSeverityColor(severity))
-        .restore();
-
-      doc.y += 4;
-
-      // Thin separator between violations
-      doc
-        .save()
-        .moveTo(PAGE_MARGIN + 12, doc.y)
-        .lineTo(PAGE_WIDTH - PAGE_MARGIN, doc.y)
-        .lineWidth(0.3)
-        .strokeColor(COLORS.lightGray)
-        .stroke()
-        .restore();
-      doc.y += 4;
-    }
-
-    doc.y += 4;
-  }
-}
-
-function buildPerformanceSection(
-  doc: PDFKit.PDFDocument,
-  result: ScanResult
-): void {
-  const catData = getCategoryData(result.categories, "performance");
-  const violations = result.violations.filter(
-    (v) => v.category === "performance"
-  );
-
-  // Skip if no performance data at all
-  if (catData.score === 0 && catData.passed === 0 && violations.length === 0) {
-    return;
-  }
-
-  ensureSpace(doc, 200);
-  drawSectionHeader(doc, "Performance Analysis");
-
-  // Score line
-  const scoreColor = getScoreColor(catData.score);
-  doc
-    .font(FONTS.bold)
-    .fontSize(10)
-    .fillColor(scoreColor)
-    .text(`Score: ${catData.score}/100`, PAGE_MARGIN, doc.y, {
-      continued: true,
-    })
-    .font(FONTS.regular)
-    .fillColor(COLORS.darkGray)
-    .text(
-      `   \u2022  ${catData.passed} passed   \u2022  ${catData.violations} issues`
-    );
-
-  doc.y += 10;
-
-  // Core Web Vitals table
-  const cwvMetrics = [
-    { name: "Largest Contentful Paint (LCP)", rule: "lcp", good: "\u2264 2.5s" },
-    { name: "First Input Delay (FID)", rule: "fid", good: "\u2264 100ms" },
-    { name: "Cumulative Layout Shift (CLS)", rule: "cls", good: "\u2264 0.1" },
-    { name: "First Contentful Paint (FCP)", rule: "fcp", good: "\u2264 1.8s" },
-    { name: "Time to Interactive (TTI)", rule: "tti", good: "\u2264 3.8s" },
-    { name: "Total Blocking Time (TBT)", rule: "tbt", good: "\u2264 200ms" },
-  ];
-
-  const cwvRows: string[][] = cwvMetrics.map((metric) => {
-    const violation = violations.find((v) =>
-      v.rule.toLowerCase().includes(metric.rule)
-    );
-    if (violation) {
-      const status =
-        violation.severity === "critical" || violation.severity === "high"
-          ? "FAIL"
-          : "Needs Improvement";
-      return [metric.name, violation.message || "N/A", status];
-    }
-    return [metric.name, metric.good, "PASS"];
-  });
-
-  drawTable(
-    doc,
-    ["Metric", "Threshold", "Status"],
-    cwvRows,
-    [CONTENT_WIDTH * 0.45, CONTENT_WIDTH * 0.3, CONTENT_WIDTH * 0.25],
-    { compact: true }
-  );
-
-  // Performance issues (if any)
-  if (violations.length > 0) {
-    doc.y += 4;
-
-    doc
-      .font(FONTS.bold)
-      .fontSize(10)
-      .fillColor(COLORS.darkBg)
-      .text("Performance Issues", PAGE_MARGIN, doc.y);
-    doc.y += 6;
-
-    const grouped = groupViolationsBySeverity(violations);
-
-    for (const [severity, items] of grouped) {
-      for (const violation of items) {
-        ensureSpace(doc, 40);
-
-        const rowY = doc.y;
-        drawSeverityBadge(doc, PAGE_MARGIN, rowY, severity);
-
-        doc
-          .font(FONTS.regular)
-          .fontSize(8)
-          .fillColor(COLORS.darkBg)
-          .text(violation.message, PAGE_MARGIN + 65, rowY + 2, {
-            width: CONTENT_WIDTH - 70,
-          });
-
-        doc.y = rowY + 18;
-
-        const suggestion = result.suggestions.find(
-          (s) => s.violationId === violation.id
-        );
-        if (suggestion) {
-          doc
-            .font(FONTS.oblique)
-            .fontSize(7.5)
-            .fillColor(COLORS.darkGray)
-            .text(
-              `\u2192 ${suggestion.description}`,
-              PAGE_MARGIN + 8,
-              doc.y,
-              { width: CONTENT_WIDTH - 16 }
-            );
-          doc.y += 4;
-        }
-
-        doc.y += 4;
+      // Fix suggestion
+      const fix = r.suggestions.find((s) => s.violationId === v.id);
+      if (fix) {
+        doc.y += 2;
+        doc.font(F.i).fontSize(7.5).fillColor(C.pass)
+          .text(`\u2192 ${trunc(fix.description, 130)}`, textX, doc.y, { width: textW });
       }
+
+      // Draw accent bar
+      const endY = doc.y;
+      doc.rect(cardX, vy, 3, endY - vy).fill(sevColor(sev));
+
+      doc.y += 8;
     }
   }
 }
 
-function buildRecommendationsSection(
-  doc: PDFKit.PDFDocument,
-  result: ScanResult
-): void {
-  const hasViolations = result.violations.length > 0;
+// ── Recommendations ─────────────────────────────────────────────────────
 
-  // If no violations, we'll just add a compact section to the current page
-  // rather than a whole new page
-  if (!hasViolations) {
-    // Check if we have enough space on the current page, otherwise add one
-    if (doc.y > FOOTER_ZONE - 160) {
-      doc.addPage();
-    }
-
-    drawSectionHeader(doc, "Summary");
-
-    doc
-      .font(FONTS.regular)
-      .fontSize(10)
-      .fillColor(COLORS.pass)
-      .text(
-        "\u2713  No issues found. Your site is in great shape!",
-        PAGE_MARGIN,
-        doc.y,
-        { width: CONTENT_WIDTH }
-      );
-    doc.y += 16;
-
-    doc
-      .font(FONTS.bold)
-      .fontSize(10)
-      .fillColor(COLORS.darkBg)
-      .text("Next Steps", PAGE_MARGIN, doc.y);
-    doc.y += 6;
-
-    const steps = [
-      "Schedule periodic scans for ongoing quality monitoring.",
-      "Supplement automated scanning with manual accessibility testing.",
-      "Re-scan after any major site updates.",
-    ];
-
-    for (const step of steps) {
-      doc
-        .font(FONTS.regular)
-        .fontSize(9)
-        .fillColor(COLORS.darkGray)
-        .text(`\u2022  ${step}`, PAGE_MARGIN + 8, doc.y, {
-          width: CONTENT_WIDTH - 16,
-        });
-      doc.y += 3;
-    }
-
-    doc.y += 10;
-
-    // Branding
-    doc
-      .font(FONTS.regular)
-      .fontSize(8)
-      .fillColor(COLORS.mediumGray)
-      .text(
-        "This report was generated by PreShip. For continuous monitoring, visit preship.dev",
-        PAGE_MARGIN,
-        doc.y,
-        { width: CONTENT_WIDTH, align: "center" }
-      );
-
+function recommendations(doc: PDFKit.PDFDocument, r: ScanResult): void {
+  if (r.violations.length === 0) {
+    space(doc, 80);
+    header(doc, "Summary");
+    doc.font(F.r).fontSize(10).fillColor(C.pass)
+      .text("\u2713  No issues found. Your site is in great shape!", M, doc.y, { width: CW });
+    doc.y += 20;
+    doc.font(F.r).fontSize(8).fillColor(C.textDim)
+      .text("Schedule periodic scans at preship.dev for ongoing monitoring.", M, doc.y, { width: CW, align: "center" });
     return;
   }
 
-  // Has violations: recommendations section
-  ensureSpace(doc, 200);
-  drawSectionHeader(doc, "Recommendations & Next Steps");
+  space(doc, 150);
+  header(doc, "Top Fixes by Impact");
 
-  // Top 5 highest-impact fixes
-  doc
-    .font(FONTS.bold)
-    .fontSize(11)
-    .fillColor(COLORS.darkBg)
-    .text("Top Fixes by Impact", PAGE_MARGIN, doc.y);
-  doc.y += 6;
+  const sevOrder: Record<Severity, number> = { critical: 5, high: 4, medium: 3, low: 2, info: 1 };
+  const sorted = [...r.violations].sort((a, b) => sevOrder[b.severity] - sevOrder[a.severity]).slice(0, 5);
 
-  const severityOrder: Record<Severity, number> = {
-    critical: 5,
-    high: 4,
-    medium: 3,
-    low: 2,
-    info: 1,
-  };
+  for (let i = 0; i < sorted.length; i++) {
+    space(doc, 40);
+    const v = sorted[i];
+    const ry = doc.y;
 
-  const sortedViolations = [...result.violations]
-    .sort((a, b) => severityOrder[b.severity] - severityOrder[a.severity])
-    .slice(0, 5);
-
-  for (let i = 0; i < sortedViolations.length; i++) {
-    const v = sortedViolations[i];
-    const suggestion = result.suggestions.find(
-      (s) => s.violationId === v.id
-    );
-
-    ensureSpace(doc, 40);
-
-    const rowY = doc.y;
-
-    // Number badge
-    const numX = PAGE_MARGIN + 10;
-    doc.circle(numX, rowY + 7, 8).fill(COLORS.orange);
-    doc
-      .font(FONTS.bold)
-      .fontSize(9)
-      .fillColor(COLORS.white)
-      .text(String(i + 1), numX - 8, rowY + 3, {
-        width: 16,
-        align: "center",
-      });
+    // Number circle
+    doc.circle(M + 10, ry + 7, 9).fill(C.orange);
+    doc.font(F.b).fontSize(9).fillColor(C.white)
+      .text(String(i + 1), M + 1, ry + 3, { width: 18, align: "center" });
 
     // Severity + message
-    const textX = PAGE_MARGIN + 26;
-    drawSeverityBadge(doc, textX, rowY, v.severity);
+    const bw = sevBadge(doc, M + 26, ry, v.severity);
+    doc.font(F.r).fontSize(8).fillColor(C.text)
+      .text(trunc(v.message, 100), M + 30 + bw, ry + 2, { width: CW - 34 - bw });
 
-    doc
-      .font(FONTS.regular)
-      .fontSize(8)
-      .fillColor(COLORS.darkBg)
-      .text(truncate(v.message, 120), textX, rowY + 16, {
-        width: CONTENT_WIDTH - 32,
-      });
+    doc.y = ry + 18;
 
-    doc.y = rowY + 28;
-
-    if (suggestion) {
-      doc
-        .font(FONTS.oblique)
-        .fontSize(7.5)
-        .fillColor(COLORS.darkGray)
-        .text(
-          `\u2192 ${truncate(suggestion.description, 140)}`,
-          textX + 4,
-          doc.y,
-          { width: CONTENT_WIDTH - 38 }
-        );
+    const fix = r.suggestions.find((s) => s.violationId === v.id);
+    if (fix) {
+      doc.font(F.i).fontSize(7.5).fillColor(C.textMuted)
+        .text(`\u2192 ${trunc(fix.description, 120)}`, M + 26, doc.y, { width: CW - 30 });
       doc.y += 4;
     }
 
-    doc.y += 6;
+    doc.y += 8;
   }
 
-  doc.y += 6;
-
-  // Next steps
-  doc
-    .font(FONTS.bold)
-    .fontSize(10)
-    .fillColor(COLORS.darkBg)
-    .text("Next Steps", PAGE_MARGIN, doc.y);
-  doc.y += 6;
-
-  const nextSteps = [
-    "Address critical and high-severity violations first for maximum impact.",
-    "Use auto-fix suggestions where available to speed up remediation.",
-    "Re-scan after applying fixes to verify improvements.",
-    "Schedule periodic scans for ongoing compliance monitoring.",
-    "Supplement automated scanning with manual accessibility testing.",
-  ];
-
-  for (const step of nextSteps) {
-    ensureSpace(doc, 16);
-    doc
-      .font(FONTS.regular)
-      .fontSize(9)
-      .fillColor(COLORS.darkGray)
-      .text(`\u2022  ${step}`, PAGE_MARGIN + 8, doc.y, {
-        width: CONTENT_WIDTH - 16,
-      });
-    doc.y += 3;
-  }
-
-  doc.y += 14;
-
-  // Branding
-  doc
-    .font(FONTS.regular)
-    .fontSize(8)
-    .fillColor(COLORS.mediumGray)
-    .text(
-      "This report was generated by PreShip. For continuous monitoring, visit preship.dev",
-      PAGE_MARGIN,
-      doc.y,
-      { width: CONTENT_WIDTH, align: "center" }
-    );
+  // CTA
+  doc.y += 12;
+  doc.roundedRect(M, doc.y, CW, 40, 6).fill(C.bgCard);
+  doc.font(F.b).fontSize(10).fillColor(C.orange)
+    .text("Scan again after fixes \u2192 preship.dev", M, doc.y + 12, { width: CW, align: "center" });
+  doc.y += 50;
 }
 
 // ── Public API ──────────────────────────────────────────────────────────
 
-export async function generatePdfReport(
-  scanResult: ScanResult
-): Promise<Buffer> {
+export async function generatePdfReport(result: ScanResult): Promise<Buffer> {
   return new Promise<Buffer>((resolve, reject) => {
     const chunks: Buffer[] = [];
 
     const doc = new PDFDocument({
       size: "letter",
-      margins: {
-        top: PAGE_MARGIN,
-        bottom: PAGE_MARGIN,
-        left: PAGE_MARGIN,
-        right: PAGE_MARGIN,
-      },
+      margins: { top: M, bottom: M, left: M, right: M },
       info: {
-        Title: `PreShip Quality Report - ${scanResult.url}`,
+        Title: `PreShip Quality Report - ${result.url}`,
         Author: "PreShip",
         Subject: "Quality Report",
         Creator: "PreShip (preship.dev)",
-        Producer: "PDFKit",
       },
       autoFirstPage: false,
       bufferPages: true,
@@ -1214,36 +509,26 @@ export async function generatePdfReport(
     doc.on("end", () => resolve(Buffer.concat(chunks)));
     doc.on("error", (err: Error) => reject(err));
 
-    // Page 1: Cover (always)
+    // Cover
     doc.addPage();
-    buildCoverPage(doc, scanResult);
+    cover(doc, result);
 
-    // Page 2: Executive Summary (always)
-    buildSummaryPage(doc, scanResult);
+    // Summary
+    summary(doc, result);
 
-    // Violations sections: only added if violations exist in that category
-    buildViolationsSection(
-      doc,
-      "Accessibility Audit (WCAG 2.1 Level AA)",
-      "accessibility",
-      scanResult
-    );
+    // Violation sections (skip empty)
+    violations(doc, "Accessibility Audit", "accessibility", result);
+    violations(doc, "Security Assessment", "security", result);
+    violations(doc, "Performance Analysis", "performance", result);
+    violations(doc, "SEO Audit", "seo", result);
+    violations(doc, "Privacy Check", "privacy", result);
+    violations(doc, "Mobile Usability", "mobile", result);
 
-    buildViolationsSection(
-      doc,
-      "Security Assessment",
-      "security",
-      scanResult
-    );
+    // Recommendations
+    recommendations(doc, result);
 
-    // Performance: only if data exists
-    buildPerformanceSection(doc, scanResult);
-
-    // Recommendations: adapts based on whether violations exist
-    buildRecommendationsSection(doc, scanResult);
-
-    // Draw footers on all pages at once
-    drawAllFooters(doc);
+    // Footers on all pages
+    footers(doc);
 
     doc.end();
   });
