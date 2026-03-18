@@ -235,7 +235,7 @@ export default function ScanDetailPage() {
     setDownloading(true);
     try {
       const token = typeof window !== "undefined" ? localStorage.getItem("auth_token") : null;
-      const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+      const { API_BASE } = await import("@/hooks/useApi");
       const res = await fetch(`${API_BASE}/api/scans/${scanId}/report`, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });

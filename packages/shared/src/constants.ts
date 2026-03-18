@@ -65,6 +65,13 @@ export const PLAN_LIMITS = {
     projects: Infinity,
     retentionDays: Infinity,
   },
+  internal: {
+    scansPerMonth: Infinity,
+    maxPagesPerScan: 100,
+    apiKeys: 100,
+    projects: Infinity,
+    retentionDays: Infinity,
+  },
 } as const;
 
 // ── Default scan options ─────────────────────────────────────────────

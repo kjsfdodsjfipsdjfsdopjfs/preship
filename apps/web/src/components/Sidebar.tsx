@@ -21,9 +21,9 @@ export default function Sidebar() {
   const [usage, setUsage] = useState<{ used: number; limit: number } | null>(null);
 
   useEffect(() => {
-    apiFetch<{ success: boolean; data: { scansUsed: number; scansLimit: number } }>("/api/billing/usage")
+    apiFetch<{ success: boolean; data: { scansThisMonth: number; scanLimit: number; plan: string } }>("/api/billing/usage")
       .then((res) => {
-        setUsage({ used: res.data.scansUsed, limit: res.data.scansLimit });
+        setUsage({ used: res.data.scansThisMonth, limit: res.data.scanLimit });
       })
       .catch(() => {
         // Silently fail — usage meter just won't show

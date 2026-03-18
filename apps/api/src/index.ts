@@ -10,8 +10,12 @@ import billingRoutes from "./routes/billing";
 import projectRoutes from "./routes/projects";
 import { queueService } from "./services/queue";
 import { runMigrations } from "./migrate";
+import { userQueries } from "./models/index";
 
 const app = express();
+
+// Trust proxy (Railway runs behind a reverse proxy)
+app.set("trust proxy", 1);
 
 // ── Global Middleware ─────────────────────────────────────────────────
 
@@ -54,6 +58,32 @@ app.use("/api/scans", scanRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/billing", billingRoutes);
 app.use("/api/projects", projectRoutes);
+
+// ── Internal Admin (secured by JWT secret) ──────────────────────────
+
+app.post("/internal/upgrade-plan", async (req, res) => {
+  const secret = req.headers["x-admin-secret"];
+  if (secret !== config.jwtSecret) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
+  const { email, plan } = req.body;
+  if (!email || !plan) {
+    res.status(400).json({ error: "email and plan required" });
+    return;
+  }
+  try {
+    const user = await userQueries.findByEmail(email);
+    if (!user) {
+      res.status(404).json({ error: "User not found" });
+      return;
+    }
+    await userQueries.updatePlan(user.id, plan);
+    res.json({ success: true, userId: user.id, plan });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
 
 // ── Error Handler ────────────────────────────────────────────────────
 
