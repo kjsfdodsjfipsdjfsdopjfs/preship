@@ -18,6 +18,7 @@ import { runSeoChecks } from "./seo";
 import { runPrivacyChecks } from "./privacy";
 import { runMobileChecks } from "./mobile";
 import { crawlSite } from "./crawler";
+import { detectChallenge, waitForChallengeResolution } from "./challenge-detector";
 import { buildReport } from "./reporter";
 import { generateFixSuggestions } from "./fix-suggestions";
 import type { ScannerConfig, PerformanceMetrics } from "./types";
@@ -37,6 +38,7 @@ export { runSeoChecks } from "./seo";
 export { runPrivacyChecks } from "./privacy";
 export { runMobileChecks } from "./mobile";
 export { crawlSite } from "./crawler";
+export { detectChallenge, waitForChallengeResolution } from "./challenge-detector";
 export { generateFixSuggestions } from "./fix-suggestions";
 export {
   buildReport,
@@ -379,9 +381,25 @@ async function scanSinglePage(
 
   // Navigate to the page
   const response = await page.goto(pageUrl, {
-    waitUntil: "networkidle2",
+    waitUntil: "networkidle0",
     timeout: config.waitForTimeout ?? DEFAULT_PAGE_TIMEOUT,
   });
+
+  // Check for bot challenge pages (Cloudflare, Vercel, etc.)
+  const challenge = await detectChallenge(page);
+  if (challenge.isChallenge) {
+    const resolved = await waitForChallengeResolution(page);
+    if (!resolved) {
+      console.warn(`[scanner] Page blocked by ${challenge.provider}: ${pageUrl}`);
+    }
+  }
+
+  // Wait for main content to render (SPAs need hydration time)
+  try {
+    await page.waitForSelector("main, #__next, #root, [role='main'], article, .content", { timeout: 5000 });
+  } catch {
+    // No main content selector found — continue with checks anyway
+  }
 
   // Wait for optional selector if configured
   if (config.waitForSelector) {
