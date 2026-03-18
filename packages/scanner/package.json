@@ -18,11 +18,11 @@
   },
   "dependencies": {
     "@preship/shared": "*",
+    "axe-core": "^4.8.0",
+    "cheerio": "^1.0.0-rc.12",
     "puppeteer-core": "^21.0.0",
     "puppeteer-extra": "^3.3.6",
-    "puppeteer-extra-plugin-stealth": "^2.11.2",
-    "axe-core": "^4.8.0",
-    "cheerio": "^1.0.0-rc.12"
+    "puppeteer-extra-plugin-stealth": "^2.11.2"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",
