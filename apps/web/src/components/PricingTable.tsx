@@ -6,18 +6,22 @@ import Button from "./Button";
 const tiers = [
   {
     name: "Free", price: "$0", period: "forever", description: "Try it out on personal projects", cta: "Start Free",
+    href: "/signup?plan=free",
     features: ["5 scans / month", "Accessibility checks", "Basic reports", "1 project", "Community support"],
   },
   {
     name: "Pro", price: "$29", period: "/month", description: "For indie developers and freelancers", cta: "Start Pro Trial", badge: "Popular", highlighted: true,
+    href: "/signup?plan=pro",
     features: ["100 scans / month", "Accessibility + Security + Performance", "Fix suggestions with code", "5 projects", "CI/CD integration", "API access", "PDF reports", "Email support"],
   },
   {
     name: "Team", price: "$99", period: "/month", description: "For small teams shipping fast", cta: "Start Team Trial",
+    href: "/signup?plan=team",
     features: ["500 scans / month", "Everything in Pro", "Unlimited projects", "Team members (up to 10)", "Scheduled scans", "Slack notifications", "Priority support", "Custom rules"],
   },
   {
     name: "Business", price: "$299", period: "/month", description: "For agencies and enterprises", cta: "Contact Sales",
+    href: "/contact?plan=business",
     features: ["Unlimited scans", "Everything in Team", "Unlimited team members", "Compliance reports (VPAT)", "White-label reports", "SSO / SAML", "Dedicated support", "SLA guarantee", "Custom integrations"],
   },
 ];
@@ -50,7 +54,9 @@ export default function PricingTable() {
               </li>
             ))}
           </ul>
-          <Button variant={tier.highlighted ? "primary" : "outline"} size="lg" className="w-full">{tier.cta}</Button>
+          <a href={tier.href}>
+            <Button variant={tier.highlighted ? "primary" : "outline"} size="lg" className="w-full">{tier.cta}</Button>
+          </a>
         </div>
       ))}
     </div>

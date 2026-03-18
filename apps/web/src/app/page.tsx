@@ -296,12 +296,16 @@ export default function LandingPage() {
             Stop shipping inaccessible, insecure apps. Start scanning in 30 seconds.
           </p>
           <div className="mt-8 flex flex-col sm:flex-row gap-3 justify-center">
-            <Button size="lg" className="px-8">
-              Start scanning free
-            </Button>
-            <Button variant="outline" size="lg" className="px-8">
-              View documentation
-            </Button>
+            <a href="/signup?plan=free">
+              <Button size="lg" className="px-8">
+                Start scanning free
+              </Button>
+            </a>
+            <a href="/docs">
+              <Button variant="outline" size="lg" className="px-8">
+                View documentation
+              </Button>
+            </a>
           </div>
         </div>
       </section>

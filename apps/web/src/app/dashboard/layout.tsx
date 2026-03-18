@@ -7,20 +7,28 @@ import { useRouter } from "next/navigation";
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [authChecked, setAuthChecked] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
   const router = useRouter();
   const menuRef = useRef<HTMLDivElement>(null);
+  const notifRef = useRef<HTMLDivElement>(null);
 
   const closeMenu = useCallback(() => setUserMenuOpen(false), []);
 
   useEffect(() => {
-    if (!userMenuOpen) return;
+    if (!userMenuOpen && !notificationsOpen && !searchOpen) return;
 
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") { closeMenu(); }
+      if (e.key === "Escape") {
+        closeMenu();
+        setNotificationsOpen(false);
+        setSearchOpen(false);
+      }
     };
 
     const handleClickOutside = (e: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) { closeMenu(); }
+      if (notifRef.current && !notifRef.current.contains(e.target as Node)) { setNotificationsOpen(false); }
     };
 
     document.addEventListener("keydown", handleKeyDown);
@@ -29,7 +37,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       document.removeEventListener("keydown", handleKeyDown);
       document.removeEventListener("mousedown", handleClickOutside);
     };
-  }, [userMenuOpen, closeMenu]);
+  }, [userMenuOpen, notificationsOpen, searchOpen, closeMenu]);
 
   useEffect(() => {
     const token = localStorage.getItem("auth_token");
@@ -63,14 +71,35 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <header className="sticky top-0 z-30 h-16 border-b border-neutral-800 bg-[#0A0A0A]/80 backdrop-blur-md flex items-center justify-between px-6">
           <div />
           <div className="flex items-center gap-4">
-            <button aria-label="Search" className="text-neutral-400 hover:text-white transition-colors p-2 rounded-lg hover:bg-neutral-800">
+            <button
+              aria-label="Search"
+              onClick={() => setSearchOpen(!searchOpen)}
+              className="text-neutral-400 hover:text-white transition-colors p-2 rounded-lg hover:bg-neutral-800"
+            >
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
             </button>
-            <button aria-label="Notifications" className="relative text-neutral-400 hover:text-white transition-colors p-2 rounded-lg hover:bg-neutral-800">
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" /></svg>
-              <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-orange-500 rounded-full" />
-              <span className="sr-only">You have new notifications</span>
-            </button>
+            <div className="relative" ref={notifRef}>
+              <button
+                aria-label="Notifications"
+                onClick={() => setNotificationsOpen(!notificationsOpen)}
+                className="relative text-neutral-400 hover:text-white transition-colors p-2 rounded-lg hover:bg-neutral-800"
+              >
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" /></svg>
+                <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-orange-500 rounded-full" />
+                <span className="sr-only">You have new notifications</span>
+              </button>
+              {notificationsOpen && (
+                <div className="absolute right-0 mt-2 w-72 rounded-lg border border-neutral-800 bg-neutral-900 shadow-xl py-1 animate-fade-in">
+                  <div className="px-4 py-3 border-b border-neutral-800">
+                    <p className="text-sm font-medium text-white">Notifications</p>
+                  </div>
+                  <div className="px-4 py-8 text-center">
+                    <svg className="w-8 h-8 text-neutral-600 mx-auto mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" /></svg>
+                    <p className="text-sm text-neutral-500">No notifications yet</p>
+                  </div>
+                </div>
+              )}
+            </div>
             <div className="relative" ref={menuRef}>
               <button onClick={() => setUserMenuOpen(!userMenuOpen)} aria-haspopup="menu" aria-expanded={userMenuOpen} className="flex items-center gap-2 p-1.5 rounded-lg hover:bg-neutral-800 transition-colors">
                 <div className="w-8 h-8 rounded-full bg-orange-500/20 flex items-center justify-center text-orange-400 text-sm font-semibold">JD</div>
@@ -85,13 +114,37 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   <a role="menuitem" href="/dashboard/settings" className="block px-4 py-2 text-sm text-neutral-400 hover:text-white hover:bg-neutral-800 transition-colors">Settings</a>
                   <a role="menuitem" href="/dashboard/billing" className="block px-4 py-2 text-sm text-neutral-400 hover:text-white hover:bg-neutral-800 transition-colors">Billing</a>
                   <div className="border-t border-neutral-800 mt-1 pt-1">
-                    <button role="menuitem" className="w-full text-left px-4 py-2 text-sm text-red-400 hover:bg-neutral-800 transition-colors">Sign out</button>
+                    <button
+                      role="menuitem"
+                      onClick={() => { localStorage.removeItem("auth_token"); router.replace("/login"); }}
+                      className="w-full text-left px-4 py-2 text-sm text-red-400 hover:bg-neutral-800 transition-colors"
+                    >
+                      Sign out
+                    </button>
                   </div>
                 </div>
               )}
             </div>
           </div>
         </header>
+        {searchOpen && (
+          <div className="fixed inset-0 z-50 flex items-start justify-center pt-24 px-4">
+            <div className="fixed inset-0 bg-black/60" onClick={() => setSearchOpen(false)} />
+            <div className="relative w-full max-w-lg rounded-xl border border-neutral-800 bg-neutral-900 shadow-2xl p-4 animate-fade-in">
+              <div className="flex items-center gap-3">
+                <svg className="w-5 h-5 text-neutral-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+                <input
+                  type="text"
+                  placeholder="Search scans, projects, settings..."
+                  autoFocus
+                  className="flex-1 bg-transparent text-sm text-white placeholder:text-neutral-500 focus:outline-none"
+                />
+                <kbd className="hidden sm:inline-block px-2 py-0.5 text-xs text-neutral-500 border border-neutral-700 rounded">Esc</kbd>
+              </div>
+              <p className="mt-3 text-xs text-neutral-500 text-center">Search coming soon. Type to filter scans and projects.</p>
+            </div>
+          </div>
+        )}
         <main className="p-6">{children}</main>
       </div>
     </div>

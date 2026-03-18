@@ -1,81 +1,78 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import StatsCard from "@/components/StatsCard";
 import ScanCard from "@/components/ScanCard";
 import Button from "@/components/Button";
 import ScoreCircle from "@/components/ScoreCircle";
+import { apiFetch } from "@/hooks/useApi";
 
 /* ------------------------------------------------------------------ */
-/* Mock data                                                           */
+/* Mock fallback data                                                  */
 /* ------------------------------------------------------------------ */
-const stats = [
-  {
-    label: "Total Scans",
-    value: "1,247",
-    trend: { value: 12, positive: true },
-    icon: (
-      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-      </svg>
-    ),
-  },
-  {
-    label: "Average Score",
-    value: "74",
-    trend: { value: 5, positive: true },
-    icon: (
-      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
-      </svg>
-    ),
-  },
-  {
-    label: "Issues Found",
-    value: "3,892",
-    trend: { value: 8, positive: false },
-    icon: (
-      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-      </svg>
-    ),
-  },
-  {
-    label: "Issues Fixed",
-    value: "2,156",
-    trend: { value: 23, positive: true },
-    icon: (
-      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M5 13l4 4L19 7" />
-      </svg>
-    ),
-  },
+const mockStats: { label: string; value: string; icon?: React.ReactNode; trend?: { value: number; positive: boolean } }[] = [
+  { label: "Total Scans", value: "0" },
+  { label: "Average Score", value: "--" },
+  { label: "Issues Found", value: "0" },
+  { label: "Projects", value: "0" },
 ];
 
-const recentScans = [
-  { id: "scan_001", url: "https://my-saas.vercel.app", score: 82, date: "2026-03-16T14:30:00Z", status: "completed" as const, violations: 12 },
-  { id: "scan_002", url: "https://portfolio.dev", score: 45, date: "2026-03-16T12:15:00Z", status: "completed" as const, violations: 34 },
-  { id: "scan_003", url: "https://shop.example.com", score: 91, date: "2026-03-15T18:00:00Z", status: "completed" as const, violations: 3 },
-  { id: "scan_004", url: "https://blog.johndoe.com", score: 67, date: "2026-03-15T10:45:00Z", status: "completed" as const, violations: 18 },
-  { id: "scan_005", url: "https://app.startup.io", score: 23, date: "2026-03-14T22:00:00Z", status: "completed" as const, violations: 57 },
+const mockRecentScans: any[] = [];
+
+const statIcons = [
+  <svg key="scans" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>,
+  <svg key="score" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg>,
+  <svg key="issues" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>,
+  <svg key="projects" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" /></svg>,
 ];
 
-const trendData = [
-  { date: "Mar 1", score: 62 },
-  { date: "Mar 3", score: 58 },
-  { date: "Mar 5", score: 65 },
-  { date: "Mar 7", score: 61 },
-  { date: "Mar 9", score: 70 },
-  { date: "Mar 11", score: 68 },
-  { date: "Mar 13", score: 74 },
-  { date: "Mar 15", score: 78 },
-  { date: "Mar 16", score: 74 },
-];
+/* ------------------------------------------------------------------ */
+/* Loading skeleton                                                    */
+/* ------------------------------------------------------------------ */
+function DashboardSkeleton() {
+  return (
+    <div className="max-w-6xl mx-auto space-y-8 animate-pulse">
+      <div className="flex items-center justify-between">
+        <div>
+          <div className="h-7 w-40 bg-neutral-800 rounded" />
+          <div className="h-4 w-64 bg-neutral-800 rounded mt-2" />
+        </div>
+        <div className="flex gap-2">
+          <div className="h-10 w-64 bg-neutral-800 rounded-lg" />
+          <div className="h-10 w-20 bg-neutral-800 rounded-lg" />
+        </div>
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {[1, 2, 3, 4].map((i) => (
+          <div key={i} className="rounded-xl border border-neutral-800 bg-neutral-900 p-5 h-28" />
+        ))}
+      </div>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2 rounded-xl border border-neutral-800 bg-neutral-900 p-6 h-64" />
+        <div className="rounded-xl border border-neutral-800 bg-neutral-900 p-6 h-64" />
+      </div>
+      <div className="rounded-xl border border-neutral-800 bg-neutral-900 p-6">
+        <div className="h-5 w-32 bg-neutral-800 rounded mb-4" />
+        {[1, 2, 3, 4, 5].map((i) => (
+          <div key={i} className="h-16 bg-neutral-800 rounded-lg mb-2" />
+        ))}
+      </div>
+    </div>
+  );
+}
 
 /* ------------------------------------------------------------------ */
 /* Simple SVG line chart                                               */
 /* ------------------------------------------------------------------ */
 function TrendChart({ data }: { data: { date: string; score: number }[] }) {
+  if (data.length < 2) {
+    return (
+      <div className="flex items-center justify-center h-[200px] text-neutral-500 text-sm">
+        Not enough data to show a trend yet.
+      </div>
+    );
+  }
+
   const width = 600;
   const height = 200;
   const padding = { top: 20, right: 20, bottom: 30, left: 40 };
@@ -134,13 +131,164 @@ function TrendChart({ data }: { data: { date: string; score: number }[] }) {
 }
 
 /* ------------------------------------------------------------------ */
+/* Empty state                                                         */
+/* ------------------------------------------------------------------ */
+function EmptyState() {
+  return (
+    <div className="text-center py-16">
+      <svg className="w-16 h-16 mx-auto text-neutral-700 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+      </svg>
+      <h3 className="text-lg font-semibold text-white mb-2">No scans yet</h3>
+      <p className="text-sm text-neutral-500 mb-6 max-w-sm mx-auto">
+        Enter a URL above and click Scan to run your first accessibility, security, and performance audit.
+      </p>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Demo mode banner                                                    */
+/* ------------------------------------------------------------------ */
+function DemoBanner() {
+  return (
+    <div className="rounded-lg border border-yellow-500/20 bg-yellow-500/5 px-4 py-2 text-sm text-yellow-400 flex items-center gap-2">
+      <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+      Demo mode — API not connected
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
 /* Dashboard Page                                                      */
 /* ------------------------------------------------------------------ */
 export default function DashboardPage() {
   const [scanUrl, setScanUrl] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [scanning, setScanning] = useState(false);
+  const [demoMode, setDemoMode] = useState(false);
+
+  // Data state
+  const [recentScans, setRecentScans] = useState<any[]>([]);
+  const [stats, setStats] = useState<{ label: string; value: string; icon?: React.ReactNode; trend?: { value: number; positive: boolean } }[]>(mockStats);
+  const [trendData, setTrendData] = useState<{ date: string; score: number }[]>([]);
+  const [avgScore, setAvgScore] = useState(0);
+  const [projectCount, setProjectCount] = useState(0);
+
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    setDemoMode(false);
+
+    try {
+      // Fetch scans and projects in parallel
+      const [scansRes, projectsRes] = await Promise.all([
+        apiFetch<any>("/api/scans?limit=5&sort=date").catch(() => null),
+        apiFetch<any>("/api/projects?limit=1").catch(() => null),
+      ]);
+
+      if (!scansRes && !projectsRes) {
+        // Both failed - demo mode
+        setDemoMode(true);
+        setRecentScans(mockRecentScans);
+        setStats(mockStats.map((s, i) => ({ ...s, icon: statIcons[i] })));
+        setLoading(false);
+        return;
+      }
+
+      const scans = scansRes?.data?.scans ?? [];
+      const totalScans = scansRes?.data?.pagination?.total ?? 0;
+      const totalProjects = projectsRes?.data?.pagination?.total ?? 0;
+
+      setRecentScans(
+        scans.map((s: any) => ({
+          id: s.scanId,
+          url: s.url,
+          score: s.overallScore ?? 0,
+          date: s.createdAt,
+          status: s.status,
+          violations: 0,
+        }))
+      );
+
+      setProjectCount(totalProjects);
+
+      // Calculate average score from recent scans
+      const completedScans = scans.filter((s: any) => s.status === "completed");
+      const avg = completedScans.length
+        ? Math.round(completedScans.reduce((sum: number, s: any) => sum + (s.overallScore ?? 0), 0) / completedScans.length)
+        : 0;
+      setAvgScore(avg);
+
+      // Build trend data from scans
+      const trend = scans
+        .filter((s: any) => s.status === "completed")
+        .reverse()
+        .map((s: any) => ({
+          date: new Date(s.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+          score: s.overallScore ?? 0,
+        }));
+      setTrendData(trend);
+
+      setStats([
+        { label: "Total Scans", value: totalScans.toLocaleString(), icon: statIcons[0] },
+        { label: "Average Score", value: avg > 0 ? String(avg) : "--", icon: statIcons[1] },
+        { label: "Completed", value: String(completedScans.length), icon: statIcons[2] },
+        { label: "Projects", value: String(totalProjects), icon: statIcons[3] },
+      ]);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load dashboard data");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  const handleScan = async () => {
+    if (!scanUrl.trim()) return;
+    setScanning(true);
+    try {
+      const res = await apiFetch<any>("/api/scans", {
+        method: "POST",
+        body: { url: scanUrl },
+      });
+      // Navigate to the scan detail page
+      if (res?.data?.scanId) {
+        window.location.href = `/dashboard/scans/${res.data.scanId}`;
+      } else {
+        // Refresh data
+        await fetchData();
+        setScanUrl("");
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to start scan");
+    } finally {
+      setScanning(false);
+    }
+  };
+
+  if (loading) return <DashboardSkeleton />;
 
   return (
     <div className="max-w-6xl mx-auto space-y-8">
+      {demoMode && <DemoBanner />}
+
+      {error && (
+        <div className="rounded-lg border border-red-500/20 bg-red-500/5 px-4 py-3 flex items-center justify-between">
+          <div className="flex items-center gap-2 text-sm text-red-400">
+            <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+            {error}
+          </div>
+          <button onClick={fetchData} className="text-sm text-red-400 hover:text-red-300 font-medium">
+            Retry
+          </button>
+        </div>
+      )}
+
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-white">Dashboard</h1>
@@ -152,14 +300,17 @@ export default function DashboardPage() {
             placeholder="https://your-app.com"
             value={scanUrl}
             onChange={(e) => setScanUrl(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && handleScan()}
             className="w-64 rounded-lg border border-neutral-800 bg-neutral-900 px-4 py-2 text-sm text-white placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all"
           />
-          <Button>Scan</Button>
+          <Button onClick={handleScan} loading={scanning} disabled={!scanUrl.trim()}>
+            Scan
+          </Button>
         </div>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {stats.map((stat) => (
+        {stats.map((stat: any) => (
           <StatsCard key={stat.label} {...stat} />
         ))}
       </div>
@@ -178,21 +329,10 @@ export default function DashboardPage() {
 
         <div className="rounded-xl border border-neutral-800 bg-neutral-900 p-6 flex flex-col items-center justify-center">
           <p className="text-sm text-neutral-400 mb-4">Current Average</p>
-          <ScoreCircle score={74} size="lg" showLabel />
-          <div className="mt-6 grid grid-cols-3 gap-4 w-full">
-            <div className="text-center">
-              <ScoreCircle score={68} size="sm" />
-              <p className="text-xs text-neutral-500 mt-2">A11y</p>
-            </div>
-            <div className="text-center">
-              <ScoreCircle score={85} size="sm" />
-              <p className="text-xs text-neutral-500 mt-2">Security</p>
-            </div>
-            <div className="text-center">
-              <ScoreCircle score={71} size="sm" />
-              <p className="text-xs text-neutral-500 mt-2">Perf</p>
-            </div>
-          </div>
+          <ScoreCircle score={avgScore} size="lg" showLabel />
+          {avgScore === 0 && (
+            <p className="text-xs text-neutral-500 mt-4">Complete a scan to see your score</p>
+          )}
         </div>
       </div>
 
@@ -203,11 +343,15 @@ export default function DashboardPage() {
             View all
           </a>
         </div>
-        <div className="space-y-2">
-          {recentScans.map((scan) => (
-            <ScanCard key={scan.id} {...scan} />
-          ))}
-        </div>
+        {recentScans.length > 0 ? (
+          <div className="space-y-2">
+            {recentScans.map((scan: any) => (
+              <ScanCard key={scan.id} {...scan} />
+            ))}
+          </div>
+        ) : (
+          <EmptyState />
+        )}
       </div>
     </div>
   );
