@@ -68,27 +68,77 @@ function ScanDetailSkeleton() {
 /* Pending/running state                                               */
 /* ------------------------------------------------------------------ */
 function ScanPending({ status, progress, url }: { status: string; progress: number; url: string }) {
+  const isQueued = status === "pending" || status === "queued";
+  const steps = [
+    { label: "Queued", done: true },
+    { label: "Loading page", done: !isQueued },
+    { label: "Accessibility checks", done: progress > 30 },
+    { label: "Security checks", done: progress > 60 },
+    { label: "Performance checks", done: progress > 80 },
+    { label: "Generating report", done: progress > 95 },
+  ];
   return (
-    <div className="max-w-6xl mx-auto">
-      <div className="rounded-xl border border-neutral-800 bg-neutral-900 p-12 text-center">
-        <div className="w-16 h-16 mx-auto mb-6">
-          <svg className="w-16 h-16 animate-spin text-orange-500" fill="none" viewBox="0 0 24 24">
-            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-          </svg>
-        </div>
-        <h2 className="text-xl font-semibold text-white mb-2">
-          {status === "pending" ? "Scan Queued" : "Scanning..."}
-        </h2>
-        <p className="text-sm text-neutral-400 mb-4">{url}</p>
-        {progress > 0 && (
-          <div className="max-w-xs mx-auto">
-            <div className="h-2 rounded-full bg-neutral-800 overflow-hidden">
-              <div className="h-full rounded-full bg-orange-500 transition-all duration-500" style={{ width: `${progress}%` }} />
+    <div className="max-w-2xl mx-auto">
+      <div className="rounded-xl border border-neutral-800 bg-neutral-900 p-10">
+        {/* Animated radar/pulse effect */}
+        <div className="flex justify-center mb-8">
+          <div className="relative w-24 h-24">
+            <div className="absolute inset-0 rounded-full border-2 border-orange-500/20 animate-ping" />
+            <div className="absolute inset-2 rounded-full border-2 border-orange-500/30 animate-ping" style={{ animationDelay: "0.5s" }} />
+            <div className="absolute inset-4 rounded-full border-2 border-orange-500/40 animate-ping" style={{ animationDelay: "1s" }} />
+            <div className="absolute inset-0 flex items-center justify-center">
+              <svg className="w-10 h-10 text-orange-500 animate-spin" style={{ animationDuration: "3s" }} fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+              </svg>
             </div>
-            <p className="text-xs text-neutral-500 mt-2">{progress}% complete</p>
           </div>
-        )}
+        </div>
+
+        <h2 className="text-xl font-bold text-white text-center mb-1">
+          {isQueued ? "Scan Queued" : "Scanning in progress..."}
+        </h2>
+        <p className="text-sm text-neutral-500 text-center mb-8 truncate">{url}</p>
+
+        {/* Progress bar */}
+        <div className="mb-6">
+          <div className="h-2 rounded-full bg-neutral-800 overflow-hidden">
+            <div
+              className="h-full rounded-full bg-gradient-to-r from-orange-600 to-orange-400 transition-all duration-1000 ease-out"
+              style={{ width: `${Math.max(isQueued ? 5 : 15, progress)}%` }}
+            />
+          </div>
+          <p className="text-xs text-neutral-500 mt-2 text-center tabular-nums">
+            {progress > 0 ? `${progress}%` : isQueued ? "Waiting..." : "Starting..."}
+          </p>
+        </div>
+
+        {/* Step checklist */}
+        <div className="space-y-3">
+          {steps.map((step, i) => (
+            <div key={i} className="flex items-center gap-3">
+              {step.done ? (
+                <svg className="w-5 h-5 text-green-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+              ) : i === steps.findIndex(s => !s.done) ? (
+                <svg className="w-5 h-5 text-orange-500 animate-spin flex-shrink-0" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                </svg>
+              ) : (
+                <div className="w-5 h-5 rounded-full border border-neutral-700 flex-shrink-0" />
+              )}
+              <span className={`text-sm ${step.done ? "text-neutral-300" : i === steps.findIndex(s => !s.done) ? "text-white font-medium" : "text-neutral-600"}`}>
+                {step.label}
+              </span>
+            </div>
+          ))}
+        </div>
+
+        <p className="text-xs text-neutral-600 text-center mt-8">
+          This usually takes 15-30 seconds. Page will update automatically.
+        </p>
       </div>
     </div>
   );
@@ -194,7 +244,7 @@ export default function ScanDetailPage() {
 
   // Poll if pending/running
   useEffect(() => {
-    if (!scanData || (scanData.status !== "pending" && scanData.status !== "running")) return;
+    if (!scanData || !["pending", "running", "queued", "processing"].includes(scanData.status)) return;
     const interval = setInterval(async () => {
       try {
         const res = await apiFetch<any>(`/api/scans/${scanId}`);
@@ -312,7 +362,7 @@ export default function ScanDetailPage() {
     );
   }
 
-  if (scanData.status === "pending" || scanData.status === "running") {
+  if (["pending", "running", "queued", "processing"].includes(scanData.status)) {
     return <ScanPending status={scanData.status} progress={scanData.progress ?? 0} url={scanData.url} />;
   }
 
