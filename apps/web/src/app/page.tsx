@@ -1,7 +1,7 @@
 import Navbar from "@/components/Navbar";
 import Button from "@/components/Button";
 import CodeBlock from "@/components/CodeBlock";
-import PricingTable from "@/components/PricingTable";
+
 import HeroScanInput from "@/components/HeroScanInput";
 
 /* ------------------------------------------------------------------ */
@@ -251,23 +251,6 @@ export default function LandingPage() {
       </section>
 
       {/* ============================================================ */}
-      {/* PRICING                                                      */}
-      {/* ============================================================ */}
-      <section id="pricing" className="py-20 md:py-28 border-t border-neutral-800">
-        <div className="max-w-7xl mx-auto px-4">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl md:text-4xl font-bold">
-              Simple, transparent pricing
-            </h2>
-            <p className="mt-4 text-lg text-neutral-300">
-              Start free. Scale as you grow. No hidden fees.
-            </p>
-          </div>
-          <PricingTable />
-        </div>
-      </section>
-
-      {/* ============================================================ */}
       {/* PLATFORM HIGHLIGHTS                                          */}
       {/* ============================================================ */}
       <section aria-label="Platform highlights" className="py-20 md:py-28 border-t border-neutral-800 bg-neutral-900/50">
@@ -298,16 +281,16 @@ export default function LandingPage() {
             The average ADA lawsuit costs{" "}
             <span className="text-red-400">$25,000 - $75,000</span>.
             <br />
-            PreShip costs{" "}
-            <span className="text-gradient">$29/month</span>.
+            PreShip is{" "}
+            <span className="text-gradient">free</span>. Scan your app now.
           </h2>
           <p className="mt-6 text-lg text-neutral-300">
             Stop shipping inaccessible, insecure apps. Start scanning in 30 seconds.
           </p>
           <div className="mt-8 flex flex-col sm:flex-row gap-3 justify-center">
-            <a href="/signup?plan=free">
+            <a href="#">
               <Button size="lg" className="px-8">
-                Start scanning free
+                Scan your app free
               </Button>
             </a>
             <a href="/docs">
@@ -345,7 +328,6 @@ export default function LandingPage() {
               <h3 className="text-sm font-semibold text-white mb-4">Product</h3>
               <ul className="space-y-2 text-sm text-neutral-300">
                 <li><a href="#features" className="hover:text-white transition-colors">Features</a></li>
-                <li><a href="#pricing" className="hover:text-white transition-colors">Pricing</a></li>
                 <li><a href="/docs" className="hover:text-white transition-colors">API Docs</a></li>
                 <li><a href="/changelog" className="hover:text-white transition-colors">Changelog</a></li>
               </ul>

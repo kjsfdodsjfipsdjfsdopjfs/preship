@@ -32,7 +32,7 @@ export class LocalQueueService {
    * Runs the actual scanner from @preship/scanner.
    */
   async addScanJob(data: ScanJobData): Promise<void> {
-    const { scanId, userId, url, options } = data;
+    const { scanId, userId = "", url, options } = data;
 
     // Start processing in the background (don't await - return 202 immediately)
     this.processScanJob(scanId, userId, url, options).catch((err) => {
@@ -88,8 +88,10 @@ export class LocalQueueService {
         },
       });
 
-      // Increment usage
-      await _usageQueries.incrementUsage(userId);
+      // Increment usage (skip for anonymous/public scans)
+      if (userId) {
+        await _usageQueries.incrementUsage(userId);
+      }
 
       this.jobProgress.set(scanId, 100);
       console.log(

@@ -130,7 +130,7 @@ export const userQueries = {
 
 export const scanQueries = {
   async create(data: {
-    user_id: string;
+    user_id: string | null;
     url: string;
     project_id?: string;
     checks: string[];

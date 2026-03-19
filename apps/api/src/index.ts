@@ -7,6 +7,7 @@ import { requestLogger } from "./middleware/requestLogger";
 import { AppError, ValidationError } from "./utils/errors";
 import { logger } from "./utils/logger";
 import scanRoutes from "./routes/scan";
+import publicScanRoutes from "./routes/public-scan";
 import authRoutes from "./routes/auth";
 import billingRoutes from "./routes/billing";
 import projectRoutes from "./routes/projects";
@@ -52,6 +53,7 @@ app.use(healthRoutes);
 
 // ── API Routes ───────────────────────────────────────────────────────
 
+app.use("/api/scan/public", publicScanRoutes);
 app.use("/api/scans", scanRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/billing", billingRoutes);

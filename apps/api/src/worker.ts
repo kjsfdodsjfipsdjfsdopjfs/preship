@@ -58,7 +58,10 @@ async function processScanJob(
       },
     });
 
-    await usageQueries.incrementUsage(userId);
+    // Skip usage increment for anonymous/public scans
+    if (userId) {
+      await usageQueries.incrementUsage(userId);
+    }
 
     await job.updateProgress(100);
     logger.info("Scan completed", { scanId, overallScore, component: "worker" });

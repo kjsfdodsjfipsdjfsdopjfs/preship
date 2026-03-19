@@ -56,7 +56,7 @@ db.exec(`
 
   CREATE TABLE IF NOT EXISTS scans (
     id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
-    user_id TEXT NOT NULL REFERENCES users(id),
+    user_id TEXT REFERENCES users(id),
     project_id TEXT REFERENCES projects(id),
     url TEXT NOT NULL,
     status TEXT NOT NULL DEFAULT 'queued',
@@ -188,7 +188,7 @@ export const userQueries = {
 
 export const scanQueries = {
   async create(data: {
-    user_id: string;
+    user_id: string | null;
     url: string;
     project_id?: string;
     checks: string[];

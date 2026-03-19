@@ -278,6 +278,123 @@ function localAuthJwtOrApiKey(
   localAuth(req, res, next);
 }
 
+// ── Public Scan Routes (no auth) ────────────────────────────────────
+
+const PUBLIC_SCAN_LIMIT = 5;
+const PUBLIC_SCAN_WINDOW_MS = 60 * 60 * 1000;
+const publicIpHits: Map<string, number[]> = new Map();
+
+setInterval(() => {
+  const cutoff = Date.now() - PUBLIC_SCAN_WINDOW_MS;
+  for (const [ip, timestamps] of publicIpHits.entries()) {
+    const valid = timestamps.filter((t) => t > cutoff);
+    if (valid.length === 0) {
+      publicIpHits.delete(ip);
+    } else {
+      publicIpHits.set(ip, valid);
+    }
+  }
+}, 10 * 60 * 1000).unref();
+
+const publicScanSchema = z.object({
+  url: z.string().url("Please provide a valid URL"),
+});
+
+app.post("/api/scan/public", async (req, res, next) => {
+  try {
+    const ip = req.ip || req.socket.remoteAddress || "unknown";
+    const now = Date.now();
+    const cutoff = now - PUBLIC_SCAN_WINDOW_MS;
+    const timestamps = (publicIpHits.get(ip) || []).filter((t) => t > cutoff);
+
+    if (timestamps.length >= PUBLIC_SCAN_LIMIT) {
+      res.status(429).json({
+        success: false,
+        error: "Rate limit reached. Create a free account for unlimited scans.",
+        signupUrl: "/signup",
+      });
+      return;
+    }
+
+    const parsed = publicScanSchema.safeParse(req.body);
+    if (!parsed.success) {
+      throw new ValidationError(
+        "Invalid request",
+        parsed.error.flatten().fieldErrors as Record<string, string[]>
+      );
+    }
+
+    const { url } = parsed.data;
+
+    const scan = await scanQueries.create({
+      user_id: null,
+      url,
+      checks: ["accessibility", "security", "performance"],
+      pages: [],
+    });
+
+    timestamps.push(now);
+    publicIpHits.set(ip, timestamps);
+
+    await localQueueService.addScanJob({
+      scanId: scan.id,
+      url,
+    });
+
+    res.status(202).json({
+      success: true,
+      data: {
+        scanId: scan.id,
+        status: "queued",
+        url: scan.url,
+        createdAt: scan.created_at,
+        statusUrl: `/api/scan/public/${scan.id}`,
+      },
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+app.get("/api/scan/public/:id", async (req, res, next) => {
+  try {
+    const scan = await scanQueries.findById(req.params.id);
+    if (!scan) throw new NotFoundError("Scan");
+    if (scan.user_id !== null) throw new NotFoundError("Scan");
+
+    if (scan.status === "queued" || scan.status === "processing") {
+      const jobStatus = await localQueueService.getJobStatus(scan.id);
+      res.json({
+        success: true,
+        data: {
+          scanId: scan.id,
+          status: scan.status,
+          url: scan.url,
+          progress: jobStatus?.progress ?? 0,
+          createdAt: scan.created_at,
+        },
+      });
+      return;
+    }
+
+    res.json({
+      success: true,
+      data: {
+        scanId: scan.id,
+        status: scan.status,
+        url: scan.url,
+        overallScore: scan.score ?? 0,
+        results: scan.results,
+        error: scan.error,
+        createdAt: scan.created_at,
+        completedAt: scan.completed_at,
+      },
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
 // ── Scan Routes ─────────────────────────────────────────────────────
 
 // POST /api/scans - create a new scan

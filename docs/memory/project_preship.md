@@ -1,6 +1,6 @@
 ---
 name: PreShip project overview
-description: Full project state as of 2026-03-18 — PRODUCTION LIVE, QA PASSED
+description: Full project state — PRODUCTION LIVE, freemium rebuild in progress
 type: project
 ---
 
@@ -20,30 +20,30 @@ API-first QA scanning platform for vibe-coded apps. Scans for accessibility, sec
 ## Deployment
 
 - Railway project `690bf785-a1e7-4340-806a-962d46d5fa03`
-- API: `858e1fa6` → api.preship.dev (SSL ✅)
-- Web: `d125b8e1` (loving-joy) → preship.dev (SSL ✅)
+- API: `858e1fa6` → api.preship.dev (SSL)
+- Web: `d125b8e1` (loving-joy) → preship.dev (SSL)
 - Postgres: `47511649`, Redis: `8f2ef052`
 - GitHub: `github.com/kjsfdodsjfipsdjfsdopjfs/preship.git` main
 - Railway token: `998d780d-b0a7-43e6-a14f-acf7cf192d74`
 - Env ID: `3fdb7420-4cfa-4fed-8e67-fe7386b74188`
 - DNS: Cloudflare `986a06d4d920111d88972137107d0dd5`
 
-## PRODUCTION STATUS — QA PASSED ✅ (2026-03-18)
+## PRODUCTION STATUS — QA PASSED (2026-03-18)
 
 ### Full QA verified in browser:
-- ✅ Landing page — hero, URL scan input, pricing ($0/$29/$79/$299), features grid, footer
-- ✅ Signup & Login — creates account, authenticates, redirects to dashboard
-- ✅ Dashboard — real stats (15 scans, avg score 17), score trend chart, scan list
-- ✅ Scans list — filters (All/Completed/Running/Pending/Failed), real scores
-- ✅ Scan detail — score circles (a11y 84, security 5, perf 89 for wikipedia), 15 violations with severity filtering
-- ✅ PDF download — 200 OK, 15 pages, 18KB, compact layout
-- ✅ Settings — real profile from API, change password section
-- ✅ Billing — correct prices (cents÷100), Internal plan badge, "15 / Unlimited"
-- ✅ Projects — empty state with CTA
-- ✅ Docs — API documentation with correct /api/ URLs
-- ✅ Sidebar — "15 / ∞" for unlimited, no "Upgrade plan" for internal
-- ✅ Scanner runs in Docker (Chromium + axe-core)
-- ✅ SSRF protection, DB migrations on startup, trust proxy
+- Landing page — hero, URL scan input, pricing, features grid, footer
+- Signup & Login — creates account, authenticates, redirects to dashboard
+- Dashboard — real stats (15 scans, avg score 17), score trend chart, scan list
+- Scans list — filters (All/Completed/Running/Pending/Failed), real scores
+- Scan detail — score circles, violations with severity filtering
+- PDF download — 200 OK, 15 pages, 18KB, compact layout
+- Settings — real profile from API, change password section
+- Billing — correct prices, Internal plan badge
+- Projects — empty state with CTA
+- Docs — API documentation with correct /api/ URLs
+- Sidebar — "15 / infinity" for unlimited, no "Upgrade plan" for internal
+- Scanner runs in Docker (Chromium + axe-core)
+- SSRF protection, DB migrations on startup, trust proxy
 
 ### Test account:
 - Email: dev@preship.dev / Password: Shipdevtest123
@@ -67,6 +67,26 @@ API-first QA scanning platform for vibe-coded apps. Scans for accessibility, sec
 - Stripe products/prices (no STRIPE_PRICE_* env vars)
 - OPENAI_API_KEY (using rule-based fix suggestions)
 - Sentry error tracking
+
+## FREEMIUM REBUILD — IN PROGRESS (2026-03-19)
+
+Vision: "Grammarly for web quality" — paste any URL, get instant human-readable feedback with one-click AI fixes. Zero friction, zero login required for first scan.
+
+### 7 Accepted Proposals:
+1. Public scan without login (no auth, IP rate limit 5/hr)
+2. Human-language violations (translate 50+ rules to plain English)
+3. Fix with Cursor/Claude prompts (copy-paste prompt generator)
+4. Emotional score + comparisons (letter grade, percentile, impact cards)
+5. Public shareable results (blur for anon, viral sharing)
+6. Remove pricing, make everything free (acquisition before monetization)
+7. Celebration + improvement sharing (animation for 80+, share templates)
+
+### Architecture:
+- Single BullMQ queue with priority (auth=1, public=10)
+- Rate limit CTA → signup conversion on 429
+- ConnectionError → 503 friendly message
+
+CEO Plan: ~/.gstack/projects/preship/ceo-plans/2026-03-19-freemium-rebuild.md
 
 ## Key Documents
 - CLAUDE.md — codebase guide for future sessions

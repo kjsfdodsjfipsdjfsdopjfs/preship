@@ -11,7 +11,7 @@ const SCAN_QUEUE_NAME = "scans";
 
 export interface ScanJobData {
   scanId: string;
-  userId: string;
+  userId?: string;
   url: string;
   projectId?: string;
   options?: ScanRequest["options"];
@@ -145,8 +145,10 @@ export class QueueService {
         });
       }
 
-      // Increment usage counter
-      await usageQueries.incrementUsage(userId);
+      // Increment usage counter (skip for anonymous/public scans)
+      if (userId) {
+        await usageQueries.incrementUsage(userId);
+      }
 
       await job.updateProgress(100);
       logger.info("Scan completed", { scanId, overallScore, component: "queue" });
@@ -164,14 +166,16 @@ export class QueueService {
 
   /**
    * Add a scan job to the queue.
+   * @param priority - Job priority (lower = higher priority). Default 1 for auth, 10 for public.
    */
-  async addScanJob(data: ScanJobData): Promise<void> {
+  async addScanJob(data: ScanJobData, priority: number = 1): Promise<void> {
     if (!this.queue) {
       throw new Error("Queue not initialized. Is Redis available?");
     }
 
     await this.queue.add("scan", data, {
       jobId: data.scanId,
+      priority,
     });
   }
 
