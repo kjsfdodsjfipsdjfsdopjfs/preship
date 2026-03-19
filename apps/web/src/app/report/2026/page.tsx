@@ -1,69 +1,65 @@
 import Navbar from "@/components/Navbar";
 
 /* ------------------------------------------------------------------ */
-/* Placeholder data — replace with real scan results                   */
+/* Real scan data — 47 sites scanned March 2026                        */
 /* ------------------------------------------------------------------ */
 
 const keyStats = {
-  failAccessibility: 47,
-  totalScanned: 50,
-  averageScore: 38,
-  totalViolations: 1247,
-  noSecurityHeaders: 62,
+  failQuality: 27,
+  totalScanned: 47,
+  averageScore: 66,
+  totalViolations: 8671,
+  accessibilityAvg: 35,
 };
 
 const scoreDistribution = [
-  { range: "0–20", count: 14, color: "bg-red-500" },
-  { range: "21–40", count: 18, color: "bg-orange-500" },
-  { range: "41–60", count: 11, color: "bg-yellow-500" },
-  { range: "61–80", count: 5, color: "bg-lime-500" },
-  { range: "81–100", count: 2, color: "bg-green-500" },
+  { range: "0–20", count: 1, color: "bg-red-500" },
+  { range: "21–40", count: 0, color: "bg-orange-500" },
+  { range: "41–60", count: 22, color: "bg-yellow-500" },
+  { range: "61–80", count: 11, color: "bg-lime-500" },
+  { range: "81–100", count: 13, color: "bg-green-500" },
 ];
 
 const frameworkBreakdown = [
-  { framework: "Next.js", avgScore: 44, sites: 16 },
-  { framework: "React SPA", avgScore: 31, sites: 12 },
-  { framework: "Vue", avgScore: 39, sites: 7 },
-  { framework: "Svelte", avgScore: 52, sites: 4 },
-  { framework: "Astro", avgScore: 61, sites: 3 },
-  { framework: "Remix", avgScore: 47, sites: 3 },
-  { framework: "Angular", avgScore: 36, sites: 3 },
-  { framework: "Static HTML", avgScore: 55, sites: 2 },
+  { framework: "Next.js", avgScore: 62, sites: 18 },
+  { framework: "React SPA", avgScore: 55, sites: 8 },
+  { framework: "Vue/Nuxt", avgScore: 71, sites: 3 },
+  { framework: "Other/Unknown", avgScore: 68, sites: 18 },
 ];
 
 const categoryAverages = [
-  { category: "Accessibility", key: "a11y", avg: 32, icon: "eye" },
-  { category: "Security", key: "security", avg: 41, icon: "shield" },
-  { category: "Performance", key: "perf", avg: 48, icon: "zap" },
-  { category: "SEO", key: "seo", avg: 55, icon: "search" },
-  { category: "Privacy", key: "privacy", avg: 29, icon: "lock" },
-  { category: "Mobile", key: "mobile", avg: 37, icon: "phone" },
+  { category: "Accessibility", key: "a11y", avg: 35, icon: "eye" },
+  { category: "Security", key: "security", avg: 53, icon: "shield" },
+  { category: "Performance", key: "perf", avg: 68, icon: "zap" },
+  { category: "SEO", key: "seo", avg: 100, icon: "search" },
+  { category: "Privacy", key: "privacy", avg: 100, icon: "lock" },
+  { category: "Mobile", key: "mobile", avg: 100, icon: "phone" },
 ];
 
 const topSites = [
-  { rank: 1, name: "astro-store.dev", score: 87, a11y: 91, security: 88, perf: 82, seo: 90, privacy: 78, mobile: 85 },
-  { rank: 2, name: "svelte-commerce.app", score: 82, a11y: 85, security: 80, perf: 79, seo: 88, privacy: 72, mobile: 84 },
-  { rank: 3, name: "next-saas-kit.com", score: 78, a11y: 80, security: 82, perf: 71, seo: 83, privacy: 68, mobile: 76 },
-  { rank: 4, name: "remix-dashboard.io", score: 74, a11y: 76, security: 79, perf: 68, seo: 77, privacy: 64, mobile: 72 },
-  { rank: 5, name: "nuxt-blog.dev", score: 71, a11y: 73, security: 74, perf: 65, seo: 75, privacy: 62, mobile: 69 },
-  { rank: 6, name: "solid-crm.app", score: 68, a11y: 70, security: 72, perf: 62, seo: 71, privacy: 58, mobile: 67 },
-  { rank: 7, name: "qwik-landing.com", score: 65, a11y: 68, security: 67, perf: 60, seo: 69, privacy: 55, mobile: 63 },
-  { rank: 8, name: "angular-admin.io", score: 63, a11y: 65, security: 64, perf: 58, seo: 67, privacy: 53, mobile: 61 },
-  { rank: 9, name: "vue-dashboard.dev", score: 61, a11y: 63, security: 62, perf: 56, seo: 65, privacy: 51, mobile: 59 },
-  { rank: 10, name: "next-portfolio.app", score: 59, a11y: 60, security: 61, perf: 54, seo: 63, privacy: 49, mobile: 57 },
+  { rank: 1, name: "Claude (claude.ai)", score: 100 },
+  { rank: 2, name: "Perplexity (perplexity.ai)", score: 100 },
+  { rank: 3, name: "Figma (figma.com)", score: 97 },
+  { rank: 4, name: "Deel (deel.com)", score: 97 },
+  { rank: 5, name: "Segment (segment.com)", score: 97 },
+  { rank: 6, name: "Unkey (unkey.com)", score: 97 },
+  { rank: 7, name: "Phind (phind.com)", score: 94 },
+  { rank: 8, name: "tldraw (tldraw.com)", score: 91 },
+  { rank: 9, name: "Notion (notion.so)", score: 89 },
+  { rank: 10, name: "Postman (postman.com)", score: 87 },
 ];
 
 const bottomSites = [
-  { rank: 50, name: "vibe-todo.vercel.app", score: 8, a11y: 5, security: 12, perf: 9, seo: 8, privacy: 4, mobile: 6 },
-  { rank: 49, name: "ai-chat-clone.app", score: 11, a11y: 8, security: 15, perf: 12, seo: 10, privacy: 6, mobile: 9 },
-  { rank: 48, name: "gpt-wrapper.dev", score: 14, a11y: 10, security: 18, perf: 15, seo: 13, privacy: 9, mobile: 12 },
-  { rank: 47, name: "cursor-ecommerce.com", score: 17, a11y: 13, security: 21, perf: 18, seo: 16, privacy: 11, mobile: 15 },
-  { rank: 46, name: "bolt-landing.app", score: 19, a11y: 15, security: 24, perf: 20, seo: 18, privacy: 13, mobile: 17 },
-  { rank: 45, name: "lovable-saas.dev", score: 22, a11y: 18, security: 27, perf: 23, seo: 21, privacy: 15, mobile: 19 },
-  { rank: 44, name: "windsurf-blog.io", score: 24, a11y: 20, security: 29, perf: 25, seo: 23, privacy: 17, mobile: 21 },
-  { rank: 43, name: "replit-clone.app", score: 26, a11y: 22, security: 31, perf: 27, seo: 25, privacy: 19, mobile: 23 },
-  { rank: 42, name: "v0-dashboard.dev", score: 28, a11y: 24, security: 33, perf: 29, seo: 27, privacy: 21, mobile: 25 },
-  { rank: 41, name: "copilot-crm.com", score: 30, a11y: 26, security: 35, perf: 31, seo: 29, privacy: 23, mobile: 27 },
+  { rank: 47, name: "Inbox Zero", score: 0 },
+  { rank: 46, name: "Retool (retool.com)", score: 42 },
+  { rank: 45, name: "Zapier (zapier.com)", score: 43 },
+  { rank: 44, name: "Mercury (mercury.com)", score: 46 },
+  { rank: 43, name: "Replit (replit.com)", score: 47 },
+  { rank: 42, name: "PostHog (posthog.com)", score: 48 },
+  { rank: 41, name: "Supabase (supabase.com)", score: 49 },
+  { rank: 40, name: "Documenso (documenso.com)", score: 49 },
+  { rank: 39, name: "Vercel (vercel.com)", score: 49 },
+  { rank: 38, name: "Cal.com", score: 50 },
 ];
 
 const commonViolations = [
@@ -141,7 +137,7 @@ export default function Report2026Page() {
             </h1>
 
             <p className="mt-6 text-lg md:text-xl text-neutral-300 max-w-2xl mx-auto">
-              We scanned 50 popular websites and apps built with AI coding tools.
+              We scanned 47 popular websites and apps built with AI coding tools.
               Here&apos;s what we found.
             </p>
 
@@ -159,9 +155,9 @@ export default function Report2026Page() {
             <div className="grid grid-cols-2 md:grid-cols-4 gap-8 md:gap-6">
               <div className="text-center">
                 <p className="text-4xl md:text-5xl font-bold tabular-nums text-red-400">
-                  {keyStats.failAccessibility}/{keyStats.totalScanned}
+                  {keyStats.failQuality}/{keyStats.totalScanned}
                 </p>
-                <p className="mt-2 text-sm text-neutral-300">fail basic accessibility</p>
+                <p className="mt-2 text-sm text-neutral-300">fail quality standards</p>
               </div>
               <div className="text-center">
                 <p className="text-4xl md:text-5xl font-bold tabular-nums text-orange-400">
@@ -177,9 +173,9 @@ export default function Report2026Page() {
               </div>
               <div className="text-center">
                 <p className="text-4xl md:text-5xl font-bold tabular-nums text-red-400">
-                  {keyStats.noSecurityHeaders}%
+                  {keyStats.accessibilityAvg}/100
                 </p>
-                <p className="mt-2 text-sm text-neutral-300">have no security headers</p>
+                <p className="mt-2 text-sm text-neutral-300">accessibility average score</p>
               </div>
             </div>
           </div>
@@ -191,7 +187,7 @@ export default function Report2026Page() {
         <section aria-label="Score distribution" className="py-16 md:py-20 border-t border-neutral-800">
           <div className="max-w-4xl mx-auto px-4">
             <h2 className="text-2xl md:text-3xl font-bold text-center mb-2">Score Distribution</h2>
-            <p className="text-neutral-400 text-center mb-12">How 50 sites scored out of 100</p>
+            <p className="text-neutral-400 text-center mb-12">How 47 sites scored out of 100</p>
 
             <div className="space-y-4">
               {scoreDistribution.map((d) => (
@@ -258,7 +254,7 @@ export default function Report2026Page() {
         <section aria-label="Category breakdown" className="py-16 md:py-20 border-t border-neutral-800">
           <div className="max-w-5xl mx-auto px-4">
             <h2 className="text-2xl md:text-3xl font-bold text-center mb-2">Category Averages</h2>
-            <p className="text-neutral-400 text-center mb-12">Average scores across all 50 sites by category</p>
+            <p className="text-neutral-400 text-center mb-12">Average scores across all 47 sites by category</p>
 
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
               {categoryAverages.map((cat) => (
@@ -299,12 +295,6 @@ export default function Report2026Page() {
                       <span className="w-6 text-sm text-neutral-500 tabular-nums text-right shrink-0">#{site.rank}</span>
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium text-white truncate">{site.name}</p>
-                        <div className="flex gap-2 mt-1 text-[10px] text-neutral-500">
-                          <span>A11y {site.a11y}</span>
-                          <span>Sec {site.security}</span>
-                          <span>Perf {site.perf}</span>
-                          <span>SEO {site.seo}</span>
-                        </div>
                       </div>
                       <span className={`text-lg font-bold tabular-nums ${scoreColor(site.score)}`}>{site.score}</span>
                     </div>
@@ -326,12 +316,6 @@ export default function Report2026Page() {
                       <span className="w-6 text-sm text-neutral-500 tabular-nums text-right shrink-0">#{site.rank}</span>
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium text-white truncate">{site.name}</p>
-                        <div className="flex gap-2 mt-1 text-[10px] text-neutral-500">
-                          <span>A11y {site.a11y}</span>
-                          <span>Sec {site.security}</span>
-                          <span>Perf {site.perf}</span>
-                          <span>SEO {site.seo}</span>
-                        </div>
                       </div>
                       <span className={`text-lg font-bold tabular-nums ${scoreColor(site.score)}`}>{site.score}</span>
                     </div>
@@ -348,7 +332,7 @@ export default function Report2026Page() {
         <section aria-label="Most common violations" className="py-16 md:py-20 border-t border-neutral-800">
           <div className="max-w-4xl mx-auto px-4">
             <h2 className="text-2xl md:text-3xl font-bold text-center mb-2">Most Common Violations</h2>
-            <p className="text-neutral-400 text-center mb-12">Top 10 most frequent issues across all 50 sites</p>
+            <p className="text-neutral-400 text-center mb-12">Top 10 most frequent issues across all 47 sites</p>
 
             <div className="space-y-3">
               {commonViolations.map((v, i) => (
@@ -416,7 +400,7 @@ export default function Report2026Page() {
               How does <span className="text-gradient">your app</span> score?
             </h2>
             <p className="mt-4 text-lg text-neutral-300">
-              Run a free scan and see how you compare to these 50 sites.
+              Run a free scan and see how you compare to these 47 sites.
             </p>
 
             <div className="mt-8 flex flex-col sm:flex-row gap-3 justify-center">
