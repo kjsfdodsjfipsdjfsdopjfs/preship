@@ -361,18 +361,66 @@ function ErrorState({ message }: { message: string }) {
 }
 
 /* ------------------------------------------------------------------ */
+/* Group violations by rule (dedup)                                    */
+/* ------------------------------------------------------------------ */
+interface GroupedViolation {
+  title: string;
+  description: string;
+  severity: string;
+  category: string;
+  count: number;
+  selectors: string[];
+}
+
+function groupByRule(violations: TranslatedViolation[]): GroupedViolation[] {
+  const map = new Map<string, GroupedViolation>();
+  for (const v of violations) {
+    const key = v.title;
+    const existing = map.get(key);
+    if (existing) {
+      existing.count++;
+      if (v.selector && existing.selectors.length < 3) {
+        existing.selectors.push(v.selector);
+      }
+    } else {
+      map.set(key, {
+        title: v.title,
+        description: v.description,
+        severity: v.severity,
+        category: v.category,
+        count: 1,
+        selectors: v.selector ? [v.selector] : [],
+      });
+    }
+  }
+  // Sort: critical first, then high, then by count
+  const severityOrder: Record<string, number> = { critical: 0, high: 1, medium: 2, low: 3, info: 4 };
+  return Array.from(map.values()).sort((a, b) => {
+    const sa = severityOrder[a.severity] ?? 5;
+    const sb = severityOrder[b.severity] ?? 5;
+    if (sa !== sb) return sa - sb;
+    return b.count - a.count;
+  });
+}
+
+/* ------------------------------------------------------------------ */
 /* Expandable category section                                         */
 /* ------------------------------------------------------------------ */
+const MAX_VISIBLE = 5;
+
 function ViolationGroup({
   category,
   violations,
+  totalRaw,
   defaultOpen,
 }: {
   category: string;
   violations: TranslatedViolation[];
+  totalRaw: number;
   defaultOpen: boolean;
 }) {
   const [open, setOpen] = useState(defaultOpen);
+  const [showAll, setShowAll] = useState(false);
   const labels: Record<string, string> = {
     accessibility: "Accessibility",
     security: "Security",
@@ -382,8 +430,12 @@ function ViolationGroup({
     mobile: "Mobile",
   };
 
-  const critical = violations.filter((v) => v.severity === "critical").length;
-  const high = violations.filter((v) => v.severity === "high").length;
+  const grouped = groupByRule(violations);
+  const critical = grouped.filter((v) => v.severity === "critical").reduce((s, v) => s + v.count, 0);
+  const high = grouped.filter((v) => v.severity === "high").reduce((s, v) => s + v.count, 0);
+
+  const visible = showAll ? grouped : grouped.slice(0, MAX_VISIBLE);
+  const hiddenCount = grouped.length - MAX_VISIBLE;
 
   return (
     <div className="border border-neutral-800 rounded-lg overflow-hidden">
@@ -412,26 +464,43 @@ function ViolationGroup({
             {high} high
           </span>
         )}
-        <span className="text-xs text-neutral-500 tabular-nums">{violations.length}</span>
+        <span className="text-xs text-neutral-500 tabular-nums">
+          {grouped.length === totalRaw ? totalRaw : `${grouped.length} rules · ${totalRaw} total`}
+        </span>
       </button>
 
       {open && (
-        <div className="divide-y divide-neutral-800/50">
-          {violations.map((v, idx) => (
-            <div key={idx} className="px-4 py-3 flex items-start gap-3">
-              <div className={`w-1.5 h-1.5 rounded-full mt-1.5 flex-shrink-0 ${getSeverityDot(v.severity)}`} />
-              <div className="min-w-0 flex-1">
-                <p className="text-sm text-white leading-snug">{v.title}</p>
-                <p className="text-xs text-neutral-500 mt-0.5 leading-relaxed">{v.description}</p>
-                {v.selector && (
-                  <code className="text-[10px] text-neutral-600 mt-1 block truncate">{v.selector}</code>
-                )}
+        <div>
+          <div className="divide-y divide-neutral-800/50">
+            {visible.map((v, idx) => (
+              <div key={idx} className="px-4 py-3 flex items-start gap-3">
+                <div className={`w-1.5 h-1.5 rounded-full mt-1.5 flex-shrink-0 ${getSeverityDot(v.severity)}`} />
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm text-white leading-snug">{v.title}</p>
+                    {v.count > 1 && (
+                      <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-neutral-800 text-neutral-300 font-medium tabular-nums flex-shrink-0">
+                        x{v.count}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-neutral-500 mt-0.5 leading-relaxed">{v.description}</p>
+                </div>
+                <span className={`text-[10px] flex-shrink-0 ${getSeverityColor(v.severity)}`}>
+                  {v.severity}
+                </span>
               </div>
-              <span className={`text-[10px] flex-shrink-0 ${getSeverityColor(v.severity)}`}>
-                {v.severity}
-              </span>
-            </div>
-          ))}
+            ))}
+          </div>
+
+          {!showAll && hiddenCount > 0 && (
+            <button
+              onClick={() => setShowAll(true)}
+              className="w-full px-4 py-2.5 text-xs text-orange-400 hover:text-orange-300 font-medium border-t border-neutral-800 hover:bg-neutral-900/50 transition-colors cursor-pointer"
+            >
+              Show {hiddenCount} more rule{hiddenCount !== 1 ? "s" : ""}
+            </button>
+          )}
         </div>
       )}
     </div>
@@ -622,15 +691,41 @@ export default function ResultsPage() {
           {/* ========== ISSUES — collapsible by category ========== */}
           {violations.length > 0 && (
             <div className="mb-6">
-              <h2 className="text-sm font-semibold text-neutral-400 uppercase tracking-wider mb-3">
-                Issues by category
-              </h2>
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="text-sm font-semibold text-neutral-400 uppercase tracking-wider">
+                  Issues by category
+                </h2>
+                <button
+                  onClick={() => {
+                    const lines = violations.map((v) => {
+                      const t = translateViolation(v);
+                      return `[${v.category.toUpperCase()}] [${v.severity}] ${t.title}\n  ${t.description}${v.selector ? `\n  Element: ${v.selector}` : ""}`;
+                    });
+                    const text = `PreShip Scan Report — ${domain}\nScore: ${scan.overallScore}/100\n${violations.length} issues found\n${"=".repeat(50)}\n\n${lines.join("\n\n")}`;
+                    const blob = new Blob([text], { type: "text/plain" });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement("a");
+                    a.href = url;
+                    a.download = `preship-${domain}-violations.txt`;
+                    a.click();
+                    URL.revokeObjectURL(url);
+                    showToast("Full report downloaded!");
+                  }}
+                  className="text-xs text-neutral-500 hover:text-orange-400 transition-colors cursor-pointer flex items-center gap-1"
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                  </svg>
+                  Download all {violations.length}
+                </button>
+              </div>
               <div className="space-y-2">
                 {sortedCategories.map(([category, items], idx) => (
                   <ViolationGroup
                     key={category}
                     category={category}
                     violations={items}
+                    totalRaw={items.length}
                     defaultOpen={idx === 0}
                   />
                 ))}
