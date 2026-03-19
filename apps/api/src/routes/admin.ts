@@ -273,4 +273,40 @@ router.get("/users", adminAuth, async (_req, res, next) => {
   }
 });
 
+// ── Admin scan trigger (bypasses public rate limit) ─────────────────
+
+router.post("/scan", adminAuth, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { url } = req.body;
+    if (!url || typeof url !== "string") {
+      res.status(400).json({ success: false, error: "url is required" });
+      return;
+    }
+
+    const { scanQueries } = await import("../models/index");
+    const { queueService } = await import("../services/queue");
+
+    const scan = await scanQueries.create({
+      user_id: null,
+      url,
+      checks: ["accessibility", "security", "performance"],
+      pages: [],
+    });
+
+    await queueService.addScanJob({ scanId: scan.id, url }, 5);
+
+    res.status(202).json({
+      success: true,
+      data: {
+        scanId: scan.id,
+        status: "queued",
+        url: scan.url,
+        statusUrl: `/api/scan/public/${scan.id}`,
+      },
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
 export default router;
