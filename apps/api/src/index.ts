@@ -12,6 +12,7 @@ import authRoutes from "./routes/auth";
 import billingRoutes from "./routes/billing";
 import projectRoutes from "./routes/projects";
 import healthRoutes from "./routes/health";
+import adminRoutes from "./routes/admin";
 import { queueService } from "./services/queue";
 import { runMigrations } from "./migrate";
 import { userQueries } from "./models/index";
@@ -32,6 +33,7 @@ app.use(
       "http://localhost:3000",
     ].filter((v, i, a) => a.indexOf(v) === i),
     credentials: true,
+    allowedHeaders: ["Content-Type", "Authorization", "X-API-Key", "X-Admin-Token", "X-Admin-Secret"],
   })
 );
 
@@ -58,6 +60,7 @@ app.use("/api/scans", scanRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/billing", billingRoutes);
 app.use("/api/projects", projectRoutes);
+app.use("/api/admin", adminRoutes);
 
 // ── Internal Admin (secured by JWT secret) ──────────────────────────
 

@@ -186,6 +186,7 @@ app.use(
       }
     },
     credentials: true,
+    allowedHeaders: ["Content-Type", "Authorization", "X-API-Key", "X-Admin-Token", "X-Admin-Secret"],
   })
 );
 app.use(express.json({ limit: "10mb" }));
@@ -896,6 +897,218 @@ app.get(
     }
   }
 );
+
+// ── Admin Dashboard Routes ──────────────────────────────────────────
+
+const ADMIN_CREDENTIALS = { username: "admin", password: "preship2024!" };
+const ADMIN_TOKEN = "preadmin_" + crypto.createHash("sha256").update("preship-admin-2024").digest("hex").slice(0, 32);
+
+function adminAuth(req: express.Request, res: express.Response, next: express.NextFunction): void {
+  const token = req.headers["x-admin-token"] as string;
+  if (token !== ADMIN_TOKEN) {
+    res.status(401).json({ success: false, error: "Unauthorized" });
+    return;
+  }
+  next();
+}
+
+app.post("/api/admin/login", (req, res) => {
+  const { username, password } = req.body;
+  if (username === ADMIN_CREDENTIALS.username && password === ADMIN_CREDENTIALS.password) {
+    res.json({ success: true, data: { token: ADMIN_TOKEN } });
+  } else {
+    res.status(401).json({ success: false, error: "Invalid credentials" });
+  }
+});
+
+// GET /api/admin/overview — key metrics
+app.get("/api/admin/overview", adminAuth, (_req, res) => {
+  const totalScans = (db.prepare("SELECT COUNT(*) as count FROM scans").get() as any).count;
+  const completedScans = (db.prepare("SELECT COUNT(*) as count FROM scans WHERE status = 'completed'").get() as any).count;
+  const failedScans = (db.prepare("SELECT COUNT(*) as count FROM scans WHERE status = 'failed'").get() as any).count;
+  const publicScans = (db.prepare("SELECT COUNT(*) as count FROM scans WHERE user_id IS NULL").get() as any).count;
+  const apiScans = (db.prepare("SELECT COUNT(*) as count FROM scans WHERE user_id IS NOT NULL").get() as any).count;
+  const totalUsers = (db.prepare("SELECT COUNT(*) as count FROM users").get() as any).count;
+  const totalProjects = (db.prepare("SELECT COUNT(*) as count FROM projects").get() as any).count;
+  const avgScore = (db.prepare("SELECT AVG(score) as avg FROM scans WHERE status = 'completed' AND score IS NOT NULL").get() as any).avg;
+  const uniqueDomains = (db.prepare("SELECT COUNT(DISTINCT url) as count FROM scans").get() as any).count;
+
+  // Today's scans
+  const todayStart = new Date(); todayStart.setHours(0,0,0,0);
+  const todayScans = (db.prepare("SELECT COUNT(*) as count FROM scans WHERE created_at >= ?").get(todayStart.toISOString()) as any).count;
+  const todayPublic = (db.prepare("SELECT COUNT(*) as count FROM scans WHERE created_at >= ? AND user_id IS NULL").get(todayStart.toISOString()) as any).count;
+
+  // This week
+  const weekStart = new Date(); weekStart.setDate(weekStart.getDate() - 7);
+  const weekScans = (db.prepare("SELECT COUNT(*) as count FROM scans WHERE created_at >= ?").get(weekStart.toISOString()) as any).count;
+
+  // This month
+  const monthStart = new Date(); monthStart.setDate(1); monthStart.setHours(0,0,0,0);
+  const monthScans = (db.prepare("SELECT COUNT(*) as count FROM scans WHERE created_at >= ?").get(monthStart.toISOString()) as any).count;
+
+  res.json({
+    success: true,
+    data: {
+      totalScans, completedScans, failedScans,
+      publicScans, apiScans,
+      totalUsers, totalProjects,
+      avgScore: avgScore ? Math.round(avgScore) : 0,
+      uniqueDomains,
+      todayScans, todayPublic,
+      weekScans, monthScans,
+    },
+  });
+});
+
+// GET /api/admin/scans/daily — daily scan counts for charting (last 30 days)
+app.get("/api/admin/scans/daily", adminAuth, (_req, res) => {
+  const thirtyDaysAgo = new Date(); thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+  const rows = db.prepare(`
+    SELECT date(created_at) as day,
+           COUNT(*) as total,
+           SUM(CASE WHEN user_id IS NULL THEN 1 ELSE 0 END) as organic,
+           SUM(CASE WHEN user_id IS NOT NULL THEN 1 ELSE 0 END) as internal,
+           SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed,
+           SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END) as failed
+    FROM scans
+    WHERE created_at >= ?
+    GROUP BY date(created_at)
+    ORDER BY day ASC
+  `).all(thirtyDaysAgo.toISOString());
+  res.json({ success: true, data: rows });
+});
+
+// GET /api/admin/scans/recent — latest scans with details
+app.get("/api/admin/scans/recent", adminAuth, (req, res) => {
+  const limit = Math.min(parseInt(req.query.limit as string) || 50, 200);
+  const rows = db.prepare(`
+    SELECT s.id, s.url, s.status, s.score, s.user_id, s.created_at, s.completed_at, s.error,
+           u.email as user_email
+    FROM scans s
+    LEFT JOIN users u ON s.user_id = u.id
+    ORDER BY s.created_at DESC
+    LIMIT ?
+  `).all(limit);
+
+  res.json({
+    success: true,
+    data: rows.map((r: any) => ({
+      id: r.id,
+      url: r.url,
+      status: r.status,
+      score: r.score,
+      source: r.user_id ? "api" : "organic",
+      userEmail: r.user_email || null,
+      createdAt: r.created_at,
+      completedAt: r.completed_at,
+      error: r.error,
+    })),
+  });
+});
+
+// GET /api/admin/domains — top scanned domains
+app.get("/api/admin/domains", adminAuth, (_req, res) => {
+  // Extract domain from URL and count
+  const rows = db.prepare(`
+    SELECT url, COUNT(*) as scan_count,
+           AVG(CASE WHEN score IS NOT NULL THEN score END) as avg_score,
+           MAX(created_at) as last_scanned,
+           SUM(CASE WHEN user_id IS NULL THEN 1 ELSE 0 END) as organic_count,
+           SUM(CASE WHEN user_id IS NOT NULL THEN 1 ELSE 0 END) as internal_count
+    FROM scans
+    GROUP BY url
+    ORDER BY scan_count DESC
+    LIMIT 50
+  `).all();
+
+  res.json({
+    success: true,
+    data: rows.map((r: any) => ({
+      url: r.url,
+      scanCount: r.scan_count,
+      avgScore: r.avg_score ? Math.round(r.avg_score) : null,
+      lastScanned: r.last_scanned,
+      organicCount: r.organic_count,
+      internalCount: r.internal_count,
+    })),
+  });
+});
+
+// GET /api/admin/scores — score distribution
+app.get("/api/admin/scores", adminAuth, (_req, res) => {
+  const rows = db.prepare(`
+    SELECT
+      SUM(CASE WHEN score >= 90 THEN 1 ELSE 0 END) as excellent,
+      SUM(CASE WHEN score >= 70 AND score < 90 THEN 1 ELSE 0 END) as good,
+      SUM(CASE WHEN score >= 50 AND score < 70 THEN 1 ELSE 0 END) as needs_work,
+      SUM(CASE WHEN score < 50 THEN 1 ELSE 0 END) as poor,
+      COUNT(*) as total
+    FROM scans WHERE status = 'completed' AND score IS NOT NULL
+  `).get() as any;
+
+  // Category averages
+  const catRows = db.prepare(`
+    SELECT results FROM scans WHERE status = 'completed' AND results IS NOT NULL
+  `).all() as any[];
+
+  const catTotals: Record<string, { sum: number; count: number }> = {};
+  for (const row of catRows) {
+    try {
+      const results = JSON.parse(row.results);
+      if (results?.categories) {
+        for (const cat of results.categories) {
+          if (!catTotals[cat.category]) catTotals[cat.category] = { sum: 0, count: 0 };
+          catTotals[cat.category].sum += cat.score;
+          catTotals[cat.category].count += 1;
+        }
+      }
+    } catch {}
+  }
+
+  const categoryAverages = Object.entries(catTotals).map(([category, data]) => ({
+    category,
+    avgScore: Math.round(data.sum / data.count),
+    scanCount: data.count,
+  }));
+
+  res.json({
+    success: true,
+    data: {
+      distribution: {
+        excellent: rows.excellent || 0,
+        good: rows.good || 0,
+        needsWork: rows.needs_work || 0,
+        poor: rows.poor || 0,
+        total: rows.total || 0,
+      },
+      categoryAverages,
+    },
+  });
+});
+
+// GET /api/admin/users — registered users
+app.get("/api/admin/users", adminAuth, (_req, res) => {
+  const rows = db.prepare(`
+    SELECT u.id, u.email, u.name, u.plan, u.created_at,
+           (SELECT COUNT(*) FROM scans WHERE user_id = u.id) as scan_count,
+           (SELECT COUNT(*) FROM projects WHERE user_id = u.id) as project_count
+    FROM users u
+    ORDER BY u.created_at DESC
+  `).all();
+
+  res.json({
+    success: true,
+    data: rows.map((r: any) => ({
+      id: r.id,
+      email: r.email,
+      name: r.name,
+      plan: r.plan,
+      createdAt: r.created_at,
+      scanCount: r.scan_count,
+      projectCount: r.project_count,
+    })),
+  });
+});
 
 // ── Error Handler ───────────────────────────────────────────────────
 
