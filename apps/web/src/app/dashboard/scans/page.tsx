@@ -150,12 +150,17 @@ export default function ScansPage() {
 
   const handleNewScan = async () => {
     if (!scanUrl.trim()) return;
+    // Normalize URL: accept with/without protocol, with/without www
+    let normalizedUrl = scanUrl.trim();
+    if (!normalizedUrl.startsWith("http://") && !normalizedUrl.startsWith("https://")) {
+      normalizedUrl = "https://" + normalizedUrl;
+    }
     setScanning(true);
     setError(null);
     try {
       const res = await apiFetch<any>("/api/scans", {
         method: "POST",
-        body: { url: scanUrl },
+        body: { url: normalizedUrl },
       });
       if (res?.data?.scanId) {
         window.location.href = `/dashboard/scans/${res.data.scanId}`;
@@ -193,7 +198,7 @@ export default function ScansPage() {
         </div>
         <div className="flex gap-2">
           <input
-            type="url"
+            type="text"
             placeholder="https://your-app.com"
             value={scanUrl}
             onChange={(e) => setScanUrl(e.target.value)}

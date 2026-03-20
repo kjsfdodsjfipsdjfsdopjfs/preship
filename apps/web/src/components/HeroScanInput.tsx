@@ -29,7 +29,13 @@ export default function HeroScanInput() {
       return;
     }
 
-    if (!isValidUrl(scanUrl.trim())) {
+    // Normalize URL: accept with/without protocol, with/without www
+    let normalizedUrl = scanUrl.trim();
+    if (!normalizedUrl.startsWith("http://") && !normalizedUrl.startsWith("https://")) {
+      normalizedUrl = "https://" + normalizedUrl;
+    }
+
+    if (!isValidUrl(normalizedUrl)) {
       setError("Please enter a valid URL (e.g. https://your-app.vercel.app).");
       return;
     }
@@ -40,7 +46,7 @@ export default function HeroScanInput() {
       const res = await fetch(`${API_BASE}/api/scan/public`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url: scanUrl.trim() }),
+        body: JSON.stringify({ url: normalizedUrl }),
       });
 
       if (res.status === 429) {
@@ -72,7 +78,7 @@ export default function HeroScanInput() {
         <div className="flex gap-2 p-1.5 rounded-xl border border-neutral-800 bg-neutral-900">
           <input
             id="scan-url"
-            type="url"
+            type="text"
             placeholder="https://your-app.vercel.app"
             value={scanUrl}
             onChange={(e) => { setScanUrl(e.target.value); setError(""); }}

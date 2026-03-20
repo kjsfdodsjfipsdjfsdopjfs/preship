@@ -36,6 +36,14 @@ router.post(
   checkUsageLimit,
   async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
+      // Normalize URL: prepend https:// if no protocol provided
+      if (req.body?.url && typeof req.body.url === "string") {
+        const trimmed = req.body.url.trim();
+        if (!trimmed.startsWith("http://") && !trimmed.startsWith("https://")) {
+          req.body.url = "https://" + trimmed;
+        }
+      }
+
       const parsed = ScanRequestSchema.safeParse(req.body);
       if (!parsed.success) {
         throw new ValidationError(
