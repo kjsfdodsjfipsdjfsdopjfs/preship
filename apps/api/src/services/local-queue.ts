@@ -63,6 +63,15 @@ export class LocalQueueService {
           "accessibility",
           "security",
           "performance",
+          "seo",
+          "privacy",
+          "mobile",
+          "ux",
+          "design",
+          "human_appeal",
+          "business",
+          "revenue",
+          "growth",
         ],
         includeFixSuggestions: options?.includeFixSuggestions ?? false,
         viewport: options?.viewport,
@@ -73,7 +82,7 @@ export class LocalQueueService {
 
       const overallScore = result.overallScore ?? 0;
 
-      // Store results
+      // Store results (include all new fields)
       await _scanQueries.updateStatus(scanId, "completed", {
         score: overallScore,
         results: {
@@ -82,9 +91,12 @@ export class LocalQueueService {
           pagesScanned: result.pagesScanned,
           duration: result.duration,
           overallScore,
+          shipReadiness: result.shipReadiness,
+          pillars: result.pillars,
           categories: result.categories,
           violations: result.violations,
           suggestions: result.suggestions,
+          framework: result.framework,
         },
       });
 

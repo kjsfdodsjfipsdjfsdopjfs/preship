@@ -110,6 +110,15 @@ export class QueueService {
           "accessibility",
           "security",
           "performance",
+          "seo",
+          "privacy",
+          "mobile",
+          "ux",
+          "design",
+          "human_appeal",
+          "business",
+          "revenue",
+          "growth",
         ],
         includeFixSuggestions: options?.includeFixSuggestions ?? false,
         viewport: options?.viewport,
@@ -120,7 +129,7 @@ export class QueueService {
 
       const overallScore = result.overallScore ?? 0;
 
-      // Store results
+      // Store results (include all new fields: pillars, shipReadiness, framework)
       await scanQueries.updateStatus(scanId, "completed", {
         score: overallScore,
         results: {
@@ -129,9 +138,12 @@ export class QueueService {
           pagesScanned: result.pagesScanned,
           duration: result.duration,
           overallScore,
+          shipReadiness: result.shipReadiness,
+          pillars: result.pillars,
           categories: result.categories,
           violations: result.violations,
           suggestions: result.suggestions,
+          framework: result.framework,
         },
       });
 
