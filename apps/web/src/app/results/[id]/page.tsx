@@ -258,23 +258,32 @@ function ShipReadinessBadge({ readiness }: { readiness: ShipReadiness }) {
 function PillarCard({ pillar, score, categories, icon }: { pillar: string; score: number; categories: CategoryScore[]; icon: string }) {
   const color = getScoreColor(score);
   return (
-    <div className="rounded-xl border border-neutral-800 bg-neutral-900 p-5">
-      <div className="flex items-center gap-2 mb-3">
-        <span className="text-xl">{icon}</span>
-        <span className="text-sm font-semibold text-white">{pillar}</span>
+    <div className="rounded-xl border border-neutral-800 bg-neutral-900 overflow-hidden flex flex-col">
+      {/* Header with score */}
+      <div className="px-5 py-4 flex items-center justify-between" style={{ borderBottom: `1px solid ${color}20` }}>
+        <div className="flex items-center gap-2">
+          <span className="text-xl">{icon}</span>
+          <div>
+            <span className="text-sm font-semibold text-white block">{pillar}</span>
+          </div>
+        </div>
+        <div className="text-right">
+          <span className="text-2xl font-bold tabular-nums" style={{ color }}>{score}</span>
+          <span className="text-xs text-neutral-500 ml-0.5">/100</span>
+        </div>
       </div>
-      <div className="text-3xl font-bold tabular-nums mb-4" style={{ color }}>{score}</div>
-      <div className="space-y-2">
+      {/* Category bars */}
+      <div className="px-5 py-4 space-y-2.5 flex-1">
         {categories.map((cat) => {
           const catColor = getScoreColor(cat.score);
           return (
-            <div key={cat.category} className="flex items-center justify-between">
-              <span className="text-xs text-neutral-400">{ALL_CATEGORY_LABELS[cat.category] || cat.category}</span>
-              <div className="flex items-center gap-2">
-                <div className="w-16 h-1.5 rounded-full bg-neutral-800 overflow-hidden">
-                  <div className="h-full rounded-full transition-all duration-700" style={{ width: `${cat.score}%`, backgroundColor: catColor }} />
-                </div>
-                <span className="text-xs font-medium tabular-nums w-6 text-right" style={{ color: catColor }}>{cat.score}</span>
+            <div key={cat.category}>
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-xs text-neutral-400">{ALL_CATEGORY_LABELS[cat.category] || cat.category}</span>
+                <span className="text-xs font-medium tabular-nums" style={{ color: catColor }}>{cat.score}</span>
+              </div>
+              <div className="h-1.5 rounded-full bg-neutral-800 overflow-hidden">
+                <div className="h-full rounded-full transition-all duration-700" style={{ width: `${cat.score}%`, background: `linear-gradient(90deg, ${catColor}CC, ${catColor})` }} />
               </div>
             </div>
           );
