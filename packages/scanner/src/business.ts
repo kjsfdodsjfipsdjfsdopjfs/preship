@@ -1,314 +1,334 @@
 import type { Page } from "puppeteer-core";
-import type { Violation } from "@preship/shared";
+import type { Violation, CheckResult, CheckCategory } from "@preship/shared";
 
 /**
- * Result from business viability checks including violations and total check count.
+ * Result from business viability checks including violations, check results, and total check count.
  */
 export interface BusinessCheckResult {
   violations: Violation[];
+  checkResults: CheckResult[];
   totalChecks: number;
 }
 
+const CATEGORY: CheckCategory = "business";
+
+const PLATFORM_SUBDOMAINS = [
+  ".vercel.app", ".netlify.app", ".lovable.app", ".railway.app",
+  ".herokuapp.com", ".fly.dev", ".render.com", ".surge.sh",
+  ".pages.dev", ".web.app", ".firebaseapp.com", ".github.io",
+  ".gitlab.io", ".azurewebsites.net", ".onrender.com",
+  ".up.railway.app", ".repl.co", ".glitch.me",
+];
+
 /**
- * Run comprehensive business viability checks against a page.
- * All checks are 100% automated with no LLM dependency.
- *
- * Checks for:
- * - Pricing page link presence
- * - Value proposition in hero area
- * - About/team page link presence
- * - Custom domain vs default platform subdomain
- * - Legal pages (privacy policy, terms, cookies)
- * - Contact information (email, phone, forms)
- * - SSL certificate (HTTPS)
+ * Run 20 comprehensive business viability checks against a page.
+ * Uses CUMULATIVE scoring: each check earns points if passed, 0 if not.
  *
  * @param page - A Puppeteer Page that has already navigated to the target URL
  * @param url - The URL being checked (used in violation reports)
- * @returns BusinessCheckResult with violations and total check count
+ * @returns BusinessCheckResult with violations, checkResults, and total check count
  */
 export async function runBusinessChecks(
   page: Page,
   url: string
 ): Promise<BusinessCheckResult> {
   const violations: Violation[] = [];
-  const TOTAL_CHECKS = 7;
+  const checkResults: CheckResult[] = [];
+  const TOTAL_CHECKS = 20;
 
-  // ── 1. Pricing page ───────────────────────────────────────────────────
-  try {
-    const pricingData = await page.evaluate(() => {
-      const links = Array.from(document.querySelectorAll("a[href]"));
-      const pricingKeywords = ["pricing", "plans", "price", "packages", "subscribe"];
-      const pricingLink = links.find((link) => {
-        const href = (link.getAttribute("href") ?? "").toLowerCase();
-        const text = (link.textContent ?? "").toLowerCase();
-        return pricingKeywords.some((kw) => href.includes(kw) || text.includes(kw));
-      });
-
-      return { hasPricingLink: !!pricingLink };
+  function addCheck(id: string, name: string, passed: boolean, maxPoints: number, howToFix?: string) {
+    checkResults.push({
+      id, category: CATEGORY, name, passed,
+      points: passed ? maxPoints : 0, maxPoints,
+      howToFix: passed ? undefined : howToFix,
     });
-
-    if (!pricingData.hasPricingLink) {
+    if (!passed && howToFix) {
       violations.push({
-        id: `business-no-pricing-${randomId()}`,
-        category: "business",
-        severity: "high",
-        rule: "no-pricing-page",
-        message: "No pricing page link found in the navigation or footer. Visitors cannot easily find pricing information.",
-        url,
-        help: "Add a clearly labeled 'Pricing' or 'Plans' link in your main navigation or footer to help visitors evaluate your offering.",
+        id: `${id}-${randomId()}`, category: CATEGORY,
+        severity: maxPoints >= 5 ? "high" : "medium",
+        rule: id, message: howToFix, url, help: howToFix,
       });
     }
-  } catch (e) {
-    console.error(`[business] Pricing page check failed: ${e instanceof Error ? e.message : String(e)}`);
   }
 
-  // ── 2. Value proposition ──────────────────────────────────────────────
+  // 1. Custom domain (8pts)
   try {
-    const valueData = await page.evaluate(() => {
-      // Look for heading text in the top 500px of the page
-      const headings = Array.from(document.querySelectorAll("h1, h2"));
-      let heroHeading: { text: string; top: number } | null = null;
-
-      for (const h of headings) {
-        const rect = h.getBoundingClientRect();
-        if (rect.top < 500 && rect.top >= 0) {
-          const text = (h.textContent ?? "").trim();
-          if (text.length > 0) {
-            heroHeading = { text: text.substring(0, 200), top: Math.round(rect.top) };
-            break;
-          }
-        }
-      }
-
-      return { hasHeroHeading: !!heroHeading, heading: heroHeading };
-    });
-
-    if (!valueData.hasHeroHeading) {
-      violations.push({
-        id: `business-no-value-prop-${randomId()}`,
-        category: "business",
-        severity: "critical",
-        rule: "no-value-proposition",
-        message: "No heading (h1 or h2) with text found in the hero area (top 500px). Visitors cannot immediately understand what this product does.",
-        url,
-        help: "Add a clear, concise headline in the hero section that explains your product's value proposition in one sentence.",
-      });
-    }
-  } catch (e) {
-    console.error(`[business] Value proposition check failed: ${e instanceof Error ? e.message : String(e)}`);
-  }
-
-  // ── 3. About page ────────────────────────────────────────────────────
-  try {
-    const aboutData = await page.evaluate(() => {
-      const links = Array.from(document.querySelectorAll("a[href]"));
-      const aboutKeywords = ["/about", "/team", "/company", "/our-story", "/who-we-are"];
-      const aboutLink = links.find((link) => {
-        const href = (link.getAttribute("href") ?? "").toLowerCase();
-        const text = (link.textContent ?? "").toLowerCase();
-        return (
-          aboutKeywords.some((kw) => href.includes(kw)) ||
-          text === "about" ||
-          text === "about us" ||
-          text === "our team" ||
-          text === "company"
-        );
-      });
-
-      return { hasAboutLink: !!aboutLink };
-    });
-
-    if (!aboutData.hasAboutLink) {
-      violations.push({
-        id: `business-no-about-${randomId()}`,
-        category: "business",
-        severity: "medium",
-        rule: "no-about-page",
-        message: "No about/team/company page link found. Visitors may not trust a product without knowing who is behind it.",
-        url,
-        help: "Add an 'About', 'Team', or 'Company' link in your navigation or footer to build trust and credibility.",
-      });
-    }
-  } catch (e) {
-    console.error(`[business] About page check failed: ${e instanceof Error ? e.message : String(e)}`);
-  }
-
-  // ── 4. Custom domain ──────────────────────────────────────────────────
-  try {
-    const platformSubdomains = [
-      ".vercel.app",
-      ".netlify.app",
-      ".lovable.app",
-      ".railway.app",
-      ".herokuapp.com",
-      ".fly.dev",
-      ".render.com",
-      ".surge.sh",
-      ".pages.dev",
-      ".web.app",
-      ".firebaseapp.com",
-      ".github.io",
-      ".gitlab.io",
-      ".azurewebsites.net",
-      ".onrender.com",
-      ".up.railway.app",
-      ".repl.co",
-      ".glitch.me",
-    ];
-
     const parsedUrl = new URL(url);
     const hostname = parsedUrl.hostname.toLowerCase();
-    const isPlatformDomain = platformSubdomains.some((sub) => hostname.endsWith(sub));
+    const passed = !PLATFORM_SUBDOMAINS.some(sub => hostname.endsWith(sub));
+    addCheck("business-custom-domain", "Custom Domain", passed, 8,
+      `Site uses a platform subdomain (${hostname}). Register a custom domain for brand credibility and SEO.`);
+  } catch { addCheck("business-custom-domain", "Custom Domain", false, 8); }
 
-    if (isPlatformDomain) {
-      violations.push({
-        id: `business-no-custom-domain-${randomId()}`,
-        category: "business",
-        severity: "high",
-        rule: "no-custom-domain",
-        message: `Site is using a platform subdomain (${hostname}). A custom domain is essential for brand credibility and SEO.`,
-        url,
-        help: "Register a custom domain and configure it with your hosting provider. This improves trust, SEO, and brand recognition.",
-      });
-    }
-  } catch (e) {
-    console.error(`[business] Custom domain check failed: ${e instanceof Error ? e.message : String(e)}`);
-  }
-
-  // ── 5. Legal pages ────────────────────────────────────────────────────
+  // 2. SSL/HTTPS enabled (3pts)
   try {
-    const legalData = await page.evaluate(() => {
+    const passed = url.startsWith("https://");
+    addCheck("business-ssl", "SSL/HTTPS Enabled", passed, 3,
+      "Enable HTTPS on your domain. Most hosts offer free SSL via Let's Encrypt.");
+  } catch { addCheck("business-ssl", "SSL/HTTPS Enabled", false, 3); }
+
+  // 3. Privacy policy page (5pts)
+  try {
+    const passed = await page.evaluate(() => {
       const links = Array.from(document.querySelectorAll("a[href]"));
-
-      const findLink = (keywords: string[]): boolean => {
-        return links.some((link) => {
-          const href = (link.getAttribute("href") ?? "").toLowerCase();
-          const text = (link.textContent ?? "").toLowerCase();
-          return keywords.some((kw) => href.includes(kw) || text.includes(kw));
-        });
-      };
-
-      return {
-        hasPrivacyPolicy: findLink(["privacy", "privacy-policy", "privacypolicy"]),
-        hasTermsOfService: findLink(["terms", "terms-of-service", "tos", "terms-and-conditions"]),
-        hasCookiePolicy: findLink(["cookie", "cookie-policy", "cookiepolicy"]),
-      };
+      return links.some(l => {
+        const href = (l.getAttribute("href") ?? "").toLowerCase();
+        const text = (l.textContent ?? "").toLowerCase();
+        return /privacy/.test(href) || /privacy/.test(text);
+      });
     });
+    addCheck("business-privacy-policy", "Privacy Policy", passed, 5,
+      "Add a link to your privacy policy in the footer. Legally required under GDPR/CCPA.");
+  } catch { addCheck("business-privacy-policy", "Privacy Policy", false, 5); }
 
-    if (!legalData.hasPrivacyPolicy) {
-      violations.push({
-        id: `business-no-privacy-policy-${randomId()}`,
-        category: "business",
-        severity: "critical",
-        rule: "no-privacy-policy",
-        message: "No privacy policy link found. A privacy policy is legally required in most jurisdictions (GDPR, CCPA, etc.).",
-        url,
-        help: "Add a link to your privacy policy in the footer. This is a legal requirement if you collect any user data.",
-      });
-    }
-
-    if (!legalData.hasTermsOfService) {
-      violations.push({
-        id: `business-no-terms-${randomId()}`,
-        category: "business",
-        severity: "high",
-        rule: "no-terms-of-service",
-        message: "No terms of service link found. Terms of service protect both you and your users.",
-        url,
-        help: "Add a link to your terms of service in the footer. This defines the rules for using your product and limits liability.",
-      });
-    }
-
-    if (!legalData.hasCookiePolicy) {
-      violations.push({
-        id: `business-no-cookie-policy-${randomId()}`,
-        category: "business",
-        severity: "medium",
-        rule: "no-cookie-policy",
-        message: "No cookie policy link found. If your site uses cookies, a cookie policy is required under GDPR.",
-        url,
-        help: "Add a cookie policy link in the footer if your site uses cookies (including analytics, ads, or session cookies).",
-      });
-    }
-  } catch (e) {
-    console.error(`[business] Legal pages check failed: ${e instanceof Error ? e.message : String(e)}`);
-  }
-
-  // ── 6. Contact information ────────────────────────────────────────────
+  // 4. Terms of service (5pts)
   try {
-    const contactData = await page.evaluate(() => {
-      // Check for mailto links
-      const mailtoLinks = document.querySelectorAll("a[href^='mailto:']");
-      const hasEmail = mailtoLinks.length > 0;
+    const passed = await page.evaluate(() => {
+      const links = Array.from(document.querySelectorAll("a[href]"));
+      return links.some(l => {
+        const href = (l.getAttribute("href") ?? "").toLowerCase();
+        const text = (l.textContent ?? "").toLowerCase();
+        return /terms|tos/.test(href) || /terms of service|terms and conditions|terms of use/.test(text);
+      });
+    });
+    addCheck("business-terms", "Terms of Service", passed, 5,
+      "Add terms of service link in the footer to protect both you and your users.");
+  } catch { addCheck("business-terms", "Terms of Service", false, 5); }
 
-      // Check for phone numbers (tel: links)
-      const telLinks = document.querySelectorAll("a[href^='tel:']");
-      const hasPhone = telLinks.length > 0;
+  // 5. Cookie policy/banner (3pts)
+  try {
+    const passed = await page.evaluate(() => {
+      const links = Array.from(document.querySelectorAll("a[href]"));
+      const hasCookieLink = links.some(l => {
+        const href = (l.getAttribute("href") ?? "").toLowerCase();
+        const text = (l.textContent ?? "").toLowerCase();
+        return /cookie/.test(href) || /cookie/.test(text);
+      });
+      const hasBanner = document.querySelectorAll('[class*="cookie"], [id*="cookie"], [class*="consent"], [id*="consent"]').length > 0;
+      return hasCookieLink || hasBanner;
+    });
+    addCheck("business-cookie-policy", "Cookie Policy/Banner", passed, 3,
+      "Add a cookie policy link or consent banner for GDPR compliance.");
+  } catch { addCheck("business-cookie-policy", "Cookie Policy/Banner", false, 3); }
 
-      // Check for contact forms
+  // 6. About page with real content (5pts)
+  try {
+    const passed = await page.evaluate(() => {
+      const links = Array.from(document.querySelectorAll("a[href]"));
+      return links.some(l => {
+        const href = (l.getAttribute("href") ?? "").toLowerCase();
+        const text = (l.textContent ?? "").toLowerCase();
+        return /\/about|\/team|\/company|\/our-story/.test(href) ||
+          /^about$|^about us$|^our team$|^company$/.test(text.trim());
+      });
+    });
+    addCheck("business-about-page", "About Page", passed, 5,
+      "Add an About, Team, or Company page link to build trust and credibility.");
+  } catch { addCheck("business-about-page", "About Page", false, 5); }
+
+  // 7. Contact page with real info (5pts)
+  try {
+    const passed = await page.evaluate(() => {
+      const hasEmail = document.querySelectorAll("a[href^='mailto:']").length > 0;
+      const hasPhone = document.querySelectorAll("a[href^='tel:']").length > 0;
+      const links = Array.from(document.querySelectorAll("a"));
+      const hasContactLink = links.some(l => {
+        const href = (l.getAttribute("href") ?? "").toLowerCase();
+        const text = (l.textContent ?? "").toLowerCase();
+        return href.includes("/contact") || text === "contact" || text === "contact us";
+      });
       const forms = Array.from(document.querySelectorAll("form"));
-      const hasContactForm = forms.some((form) => {
-        const formText = form.textContent?.toLowerCase() ?? "";
-        const formAction = (form.getAttribute("action") ?? "").toLowerCase();
-        return (
-          formText.includes("contact") ||
-          formText.includes("message") ||
-          formText.includes("get in touch") ||
-          formAction.includes("contact")
-        );
+      const hasContactForm = forms.some(f => {
+        const text = (f.textContent ?? "").toLowerCase();
+        return text.includes("contact") || text.includes("message") || text.includes("get in touch");
       });
-
-      // Check for contact page links
-      const links = Array.from(document.querySelectorAll("a[href]"));
-      const hasContactLink = links.some((link) => {
-        const href = (link.getAttribute("href") ?? "").toLowerCase();
-        const text = (link.textContent ?? "").toLowerCase();
-        return href.includes("/contact") || text === "contact" || text === "contact us" || text === "get in touch";
-      });
-
-      return { hasEmail, hasPhone, hasContactForm, hasContactLink };
+      return hasEmail || hasPhone || hasContactLink || hasContactForm;
     });
+    addCheck("business-contact-page", "Contact Page", passed, 5,
+      "Add contact information: email, phone, or a contact page link so visitors can reach you.");
+  } catch { addCheck("business-contact-page", "Contact Page", false, 5); }
 
-    if (
-      !contactData.hasEmail &&
-      !contactData.hasPhone &&
-      !contactData.hasContactForm &&
-      !contactData.hasContactLink
-    ) {
-      violations.push({
-        id: `business-no-contact-${randomId()}`,
-        category: "business",
-        severity: "high",
-        rule: "no-contact-info",
-        message: "No contact information found. No email, phone, contact form, or contact page link detected.",
-        url,
-        help: "Add at least one way for visitors to contact you: an email address (mailto: link), phone number, contact form, or link to a contact page.",
-      });
-    }
-  } catch (e) {
-    console.error(`[business] Contact info check failed: ${e instanceof Error ? e.message : String(e)}`);
-  }
-
-  // ── 7. SSL certificate ────────────────────────────────────────────────
+  // 8. Pricing page exists (5pts)
   try {
-    const isHttps = url.startsWith("https://");
-
-    if (!isHttps) {
-      violations.push({
-        id: `business-no-ssl-${randomId()}`,
-        category: "business",
-        severity: "critical",
-        rule: "no-ssl",
-        message: "Page is not served over HTTPS. SSL is essential for security, SEO, and user trust.",
-        url,
-        help: "Enable HTTPS on your domain. Most hosting providers offer free SSL certificates via Let's Encrypt.",
+    const passed = await page.evaluate(() => {
+      const links = Array.from(document.querySelectorAll("a[href]"));
+      return links.some(l => {
+        const href = (l.getAttribute("href") ?? "").toLowerCase();
+        const text = (l.textContent ?? "").toLowerCase();
+        return /pricing|plans|price|packages/.test(href) || /pricing|plans|price/.test(text);
       });
-    }
-  } catch (e) {
-    console.error(`[business] SSL check failed: ${e instanceof Error ? e.message : String(e)}`);
-  }
+    });
+    addCheck("business-pricing-page", "Pricing Page", passed, 5,
+      "Add a clearly labeled Pricing or Plans link in your navigation or footer.");
+  } catch { addCheck("business-pricing-page", "Pricing Page", false, 5); }
 
-  return { violations, totalChecks: TOTAL_CHECKS };
+  // 9. Multiple pricing tiers (5pts)
+  try {
+    const passed = await page.evaluate(() => {
+      const sections = document.querySelectorAll('[class*="pricing"], [class*="plan"], [class*="tier"], [id*="pricing"], [id*="plans"]');
+      if (sections.length === 0) return false;
+      for (const section of sections) {
+        const cards = section.querySelectorAll('[class*="card"], [class*="tier"], [class*="plan"], [class*="column"], [class*="option"]');
+        if (cards.length >= 2 && cards.length <= 4) return true;
+      }
+      return false;
+    });
+    addCheck("business-pricing-tiers", "Multiple Pricing Tiers", passed, 5,
+      "Offer 2-4 pricing tiers (e.g., Free, Pro, Enterprise) to capture different customer segments.");
+  } catch { addCheck("business-pricing-tiers", "Multiple Pricing Tiers", false, 5); }
+
+  // 10. Enterprise/custom tier option (3pts)
+  try {
+    const passed = await page.evaluate(() => {
+      const bodyText = document.body?.innerText ?? "";
+      return /enterprise|custom plan|contact sales|talk to sales|custom pricing/i.test(bodyText);
+    });
+    addCheck("business-enterprise-tier", "Enterprise Tier", passed, 3,
+      "Add an enterprise or custom tier option for larger customers.");
+  } catch { addCheck("business-enterprise-tier", "Enterprise Tier", false, 3); }
+
+  // 11. Documentation/help center (5pts)
+  try {
+    const passed = await page.evaluate(() => {
+      const links = Array.from(document.querySelectorAll("a"));
+      return links.some(l => {
+        const text = (l.textContent || "").trim().toLowerCase();
+        const href = (l.getAttribute("href") || "").toLowerCase();
+        return /docs|documentation|help|support|guide|knowledge\s*base/i.test(text) ||
+          /docs|documentation|help|support|guide/i.test(href);
+      });
+    });
+    addCheck("business-docs", "Documentation/Help Center", passed, 5,
+      "Add documentation, help center, or FAQ link so users can find answers independently.");
+  } catch { addCheck("business-docs", "Documentation/Help Center", false, 5); }
+
+  // 12. Changelog/updates page (3pts)
+  try {
+    const passed = await page.evaluate(() => {
+      const links = Array.from(document.querySelectorAll("a"));
+      return links.some(l => {
+        const text = (l.textContent || "").trim().toLowerCase();
+        const href = (l.getAttribute("href") || "").toLowerCase();
+        return /changelog|updates|release\s*notes|what'?s\s*new/i.test(text) ||
+          /changelog|updates|release/i.test(href);
+      });
+    });
+    addCheck("business-changelog", "Changelog/Updates", passed, 3,
+      "Add a changelog or updates page to show active development and product momentum.");
+  } catch { addCheck("business-changelog", "Changelog/Updates", false, 3); }
+
+  // 13. Status page (3pts)
+  try {
+    const passed = await page.evaluate(() => {
+      const links = Array.from(document.querySelectorAll("a"));
+      return links.some(l => {
+        const text = (l.textContent || "").trim().toLowerCase();
+        const href = (l.getAttribute("href") || "").toLowerCase();
+        return text === "status" || text.includes("system status") ||
+          /status\.|statuspage\.io|upptime|instatus/i.test(href);
+      });
+    });
+    addCheck("business-status-page", "Status Page", passed, 3,
+      "Add a public status page (e.g., Instatus, Upptime) to build trust with paying customers.");
+  } catch { addCheck("business-status-page", "Status Page", false, 3); }
+
+  // 14. Blog with content (5pts)
+  try {
+    const passed = await page.evaluate(() => {
+      const links = Array.from(document.querySelectorAll("a"));
+      return links.some(l => {
+        const text = (l.textContent || "").trim().toLowerCase();
+        const href = (l.getAttribute("href") || "").toLowerCase();
+        const isNavOrFooter = l.closest("nav, header, footer, [role='navigation'], [role='banner'], [role='contentinfo']") !== null;
+        return isNavOrFooter && (/blog|articles|news/i.test(text) || /blog|articles|news/i.test(href));
+      });
+    });
+    addCheck("business-blog", "Blog with Content", passed, 5,
+      "Add a blog with actual posts to drive SEO traffic and establish authority.");
+  } catch { addCheck("business-blog", "Blog with Content", false, 5); }
+
+  // 15. Company registration/legal entity (3pts)
+  try {
+    const passed = await page.evaluate(() => {
+      const footer = document.querySelector("footer, [role='contentinfo']");
+      if (!footer) return false;
+      const footerText = footer.textContent?.toLowerCase() ?? "";
+      return /inc\.|llc|ltd|gmbh|corp|pty|s\.a\.|co\.|company|registered|incorporation|\u00a9\s*\d{4}/i.test(footerText);
+    });
+    addCheck("business-legal-entity", "Company Legal Entity", passed, 3,
+      "Show company name with legal entity type (Inc., LLC, Ltd) in the footer or legal pages.");
+  } catch { addCheck("business-legal-entity", "Company Legal Entity", false, 3); }
+
+  // 16. Clear revenue model (5pts)
+  try {
+    const passed = await page.evaluate(() => {
+      const bodyText = document.body?.innerText ?? "";
+      return /\$\d|€\d|£\d|\/mo|\/month|\/year|free plan|pricing|subscribe|buy now|purchase|add to cart/i.test(bodyText);
+    });
+    addCheck("business-revenue-model", "Clear Revenue Model", passed, 5,
+      "Make it obvious how the business makes money: show prices, subscription options, or purchase CTAs.");
+  } catch { addCheck("business-revenue-model", "Clear Revenue Model", false, 5); }
+
+  // 17. Refund/cancellation policy (3pts)
+  try {
+    const passed = await page.evaluate(() => {
+      const bodyText = document.body?.innerText?.toLowerCase() ?? "";
+      const links = Array.from(document.querySelectorAll("a"));
+      const hasRefundLink = links.some(l => {
+        const href = (l.getAttribute("href") ?? "").toLowerCase();
+        const text = (l.textContent ?? "").toLowerCase();
+        return /refund|cancellation|return/i.test(href) || /refund|cancellation|return policy/i.test(text);
+      });
+      return hasRefundLink || /refund|money.?back|cancellation policy|return policy/i.test(bodyText);
+    });
+    addCheck("business-refund-policy", "Refund/Cancellation Policy", passed, 3,
+      "Add a refund or cancellation policy link to set clear expectations for customers.");
+  } catch { addCheck("business-refund-policy", "Refund/Cancellation Policy", false, 3); }
+
+  // 18. API documentation (3pts)
+  try {
+    const passed = await page.evaluate(() => {
+      const links = Array.from(document.querySelectorAll("a"));
+      return links.some(l => {
+        const href = (l.getAttribute("href") ?? "").toLowerCase();
+        const text = (l.textContent ?? "").toLowerCase();
+        return /api\s*doc|api\s*ref|developer|\/api/i.test(href) || /api\s*doc|api\s*ref|developer/i.test(text);
+      });
+    });
+    addCheck("business-api-docs", "API Documentation", passed, 3,
+      "Add API documentation for developer-facing products to enable integrations.");
+  } catch { addCheck("business-api-docs", "API Documentation", false, 3); }
+
+  // 19. Careers/hiring page (3pts)
+  try {
+    const passed = await page.evaluate(() => {
+      const links = Array.from(document.querySelectorAll("a"));
+      return links.some(l => {
+        const href = (l.getAttribute("href") ?? "").toLowerCase();
+        const text = (l.textContent ?? "").toLowerCase();
+        return /careers|jobs|hiring|join.*team|work.*with.*us/i.test(href) ||
+          /careers|jobs|hiring|join.*team|we.*hiring/i.test(text);
+      });
+    });
+    addCheck("business-careers", "Careers/Hiring Page", passed, 3,
+      "Add a careers or hiring page to show the company is growing.");
+  } catch { addCheck("business-careers", "Careers/Hiring Page", false, 3); }
+
+  // 20. Multi-language support (3pts)
+  try {
+    const passed = await page.evaluate(() => {
+      const hasHreflang = document.querySelectorAll('link[hreflang]').length > 0;
+      const hasLangSwitcher = document.querySelectorAll(
+        '[class*="lang"], [class*="language"], [class*="locale"], [id*="language"], [id*="locale"]'
+      ).length > 0;
+      const hasMultiLangMeta = document.querySelectorAll('meta[http-equiv="content-language"]').length > 0;
+      return hasHreflang || hasLangSwitcher || hasMultiLangMeta;
+    });
+    addCheck("business-multi-language", "Multi-Language Support", passed, 3,
+      "Add language switcher or hreflang tags to support international audiences.");
+  } catch { addCheck("business-multi-language", "Multi-Language Support", false, 3); }
+
+  return { violations, checkResults, totalChecks: TOTAL_CHECKS };
 }
 
 function randomId(): string {

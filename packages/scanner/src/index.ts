@@ -7,6 +7,7 @@ import {
   type Violation,
   type FixSuggestion,
   type CheckCategory,
+  type CheckResult,
 } from "@preship/shared";
 import { runAccessibilityChecks } from "./accessibility";
 import { runSecurityChecks } from "./security";
@@ -23,6 +24,7 @@ import { runBusinessChecks } from "./business";
 import { runHumanAppealChecks } from "./human-appeal";
 import { runRevenueChecks } from "./revenue";
 import { runGrowthChecks } from "./growth";
+import { runAntiTemplateChecks } from "./anti-template";
 import { crawlSite } from "./crawler";
 import { detectChallenge, waitForChallengeResolution } from "./challenge-detector";
 import { buildReport } from "./reporter";
@@ -51,6 +53,7 @@ export { runBusinessChecks } from "./business";
 export { runHumanAppealChecks } from "./human-appeal";
 export { runRevenueChecks } from "./revenue";
 export { runGrowthChecks } from "./growth";
+export { runAntiTemplateChecks } from "./anti-template";
 export { crawlSite } from "./crawler";
 export { detectChallenge, waitForChallengeResolution } from "./challenge-detector";
 export { generateFixSuggestions } from "./fix-suggestions";
@@ -203,6 +206,7 @@ export async function scan(
     }
 
     const allViolations: Violation[] = [];
+    const allCheckResults: CheckResult[] = [];
     let lastMetrics: PerformanceMetrics | undefined;
     let detectedFramework: FrameworkInfo | undefined;
     let blockedPages = 0;
@@ -253,6 +257,7 @@ export async function scan(
         }
 
         allViolations.push(...pageViolations.violations);
+        allCheckResults.push(...pageViolations.checkResults);
 
         if (pageViolations.metrics) {
           lastMetrics = pageViolations.metrics;
@@ -303,10 +308,10 @@ export async function scan(
         totalMobileChecks += 6;
         totalUxChecks += 10;
         totalDesignChecks += 8;
-        totalHumanAppealChecks += 8;
-        totalBusinessChecks += 7;
-        totalRevenueChecks += 7;
-        totalGrowthChecks += 8;
+        totalHumanAppealChecks += 20;
+        totalBusinessChecks += 20;
+        totalRevenueChecks += 20;
+        totalGrowthChecks += 20;
       }
     }
 
@@ -335,6 +340,7 @@ export async function scan(
       metrics: lastMetrics,
       framework: detectedFramework,
       checksRun: categories,
+      checkResults: allCheckResults,
       totalChecksPerCategory: {
         accessibility: totalAccessibilityChecks > 0 ? totalAccessibilityChecks : 0,
         security: totalSecurityChecks > 0 ? totalSecurityChecks : 0,
@@ -398,6 +404,7 @@ export async function scan(
  */
 interface SinglePageResult {
   violations: Violation[];
+  checkResults: CheckResult[];
   metrics?: PerformanceMetrics;
   blocked?: boolean;
   blockedBy?: "cloudflare" | "vercel" | "generic";
@@ -436,6 +443,7 @@ async function scanSinglePage(
   config: ScannerConfig & typeof DEFAULT_SCAN_OPTIONS
 ): Promise<SinglePageResult> {
   const violations: Violation[] = [];
+  const checkResults: CheckResult[] = [];
   let metrics: PerformanceMetrics | undefined;
   let accessibilityChecks = 0;
   let securityChecks = 0;
@@ -465,6 +473,7 @@ async function scanSinglePage(
       // Page is blocked — skip heavy checks to avoid misleading score-0 results
       return {
         violations: [],
+        checkResults: [],
         metrics: undefined,
         blocked: true,
         blockedBy: challenge.provider ?? "generic",
@@ -641,12 +650,15 @@ async function scanSinglePage(
     }
   }
 
-  // Run UX/UI checks
+  // Run UX/UI checks (cumulative scoring)
   if (categories.includes("ux")) {
     try {
       const uxResult = await runUxUiChecks(page, pageUrl);
       violations.push(...uxResult.violations);
       uxChecks += uxResult.totalChecks;
+      if (uxResult.checkResults) {
+        checkResults.push(...uxResult.checkResults);
+      }
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);
       console.error(`[scanner] UX/UI check failed on ${pageUrl}:`, error);
@@ -658,16 +670,19 @@ async function scanSinglePage(
         message: `UX/UI check failed: ${msg}`,
         url: pageUrl,
       });
-      uxChecks += 10;
+      uxChecks += 20;
     }
   }
 
-  // Run design quality checks
+  // Run design quality checks (cumulative scoring)
   if (categories.includes("design")) {
     try {
       const designResult = await runDesignChecks(page, pageUrl);
       violations.push(...designResult.violations);
       designChecks += designResult.totalChecks;
+      if (designResult.checkResults) {
+        checkResults.push(...designResult.checkResults);
+      }
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);
       console.error(`[scanner] Design check failed on ${pageUrl}:`, error);
@@ -679,7 +694,7 @@ async function scanSinglePage(
         message: `Design check failed: ${msg}`,
         url: pageUrl,
       });
-      designChecks += 8;
+      designChecks += 20;
     }
   }
 
@@ -688,6 +703,9 @@ async function scanSinglePage(
     try {
       const appealResult = await runHumanAppealChecks(page, pageUrl);
       violations.push(...appealResult.violations);
+      if (appealResult.checkResults) {
+        checkResults.push(...appealResult.checkResults);
+      }
       humanAppealChecks += appealResult.totalChecks;
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);
@@ -700,7 +718,7 @@ async function scanSinglePage(
         message: `Human appeal check failed: ${msg}`,
         url: pageUrl,
       });
-      humanAppealChecks += 8;
+      humanAppealChecks += 20;
     }
   }
 
@@ -709,6 +727,9 @@ async function scanSinglePage(
     try {
       const bizResult = await runBusinessChecks(page, pageUrl);
       violations.push(...bizResult.violations);
+      if (bizResult.checkResults) {
+        checkResults.push(...bizResult.checkResults);
+      }
       businessChecks += bizResult.totalChecks;
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);
@@ -721,7 +742,7 @@ async function scanSinglePage(
         message: `Business check failed: ${msg}`,
         url: pageUrl,
       });
-      businessChecks += 7;
+      businessChecks += 20;
     }
   }
 
@@ -730,6 +751,9 @@ async function scanSinglePage(
     try {
       const revResult = await runRevenueChecks(page, pageUrl);
       violations.push(...revResult.violations);
+      if (revResult.checkResults) {
+        checkResults.push(...revResult.checkResults);
+      }
       revenueChecks += revResult.totalChecks;
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);
@@ -742,7 +766,7 @@ async function scanSinglePage(
         message: `Revenue check failed: ${msg}`,
         url: pageUrl,
       });
-      revenueChecks += 7;
+      revenueChecks += 20;
     }
   }
 
@@ -751,6 +775,9 @@ async function scanSinglePage(
     try {
       const growthResult = await runGrowthChecks(page, pageUrl);
       violations.push(...growthResult.violations);
+      if (growthResult.checkResults) {
+        checkResults.push(...growthResult.checkResults);
+      }
       growthChecks += growthResult.totalChecks;
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);
@@ -763,12 +790,21 @@ async function scanSinglePage(
         message: `Growth check failed: ${msg}`,
         url: pageUrl,
       });
-      growthChecks += 8;
+      growthChecks += 20;
     }
+  }
+
+  // Run anti-template detection (penalty layer on top of all scores)
+  try {
+    const antiTpl = await runAntiTemplateChecks(page, pageUrl);
+    violations.push(...antiTpl.violations);
+  } catch (error) {
+    console.error(`[scanner] Anti-template check failed on ${pageUrl}:`, error);
   }
 
   return {
     violations,
+    checkResults,
     metrics,
     framework: frameworkInfo,
     accessibilityChecks,

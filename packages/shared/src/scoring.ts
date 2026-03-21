@@ -1,5 +1,5 @@
-import { SEVERITY_WEIGHTS, SCORE_THRESHOLDS, SCORE_LABELS, SHIP_READINESS_THRESHOLDS, PILLAR_CATEGORIES, PILLAR_WEIGHTS } from "./constants";
-import type { Violation, CategoryScore, CheckCategory, PillarScore, Pillar, ShipReadiness } from "./types";
+import { SEVERITY_WEIGHTS, SCORE_THRESHOLDS, SCORE_LABELS, SHIP_READINESS_THRESHOLDS, PILLAR_CATEGORIES, PILLAR_WEIGHTS, SCORING_MODE } from "./constants";
+import type { Violation, CategoryScore, CheckCategory, CheckResult, PillarScore, Pillar, ShipReadiness } from "./types";
 
 /**
  * Calculate a 0-100 score for a set of violations.
@@ -30,11 +30,28 @@ export function calculateScore(violations: Violation[]): number {
 }
 
 /**
- * Calculate per-category scores from a list of violations.
+ * Calculate a cumulative score from check results.
+ * Score = (earned points / max points) * 100.
+ * Used for product and business categories where you START at 0 and earn points.
+ */
+export function calculateCumulativeScore(checks: CheckResult[]): number {
+  if (checks.length === 0) return 0;
+  const maxPoints = checks.reduce((sum, c) => sum + c.maxPoints, 0);
+  if (maxPoints === 0) return 0;
+  const earnedPoints = checks.reduce((sum, c) => sum + c.points, 0);
+  return Math.max(0, Math.min(100, Math.round((earnedPoints / maxPoints) * 100)));
+}
+
+/**
+ * Calculate per-category scores from violations and check results.
+ * Uses DUAL scoring model:
+ * - Technical categories: penalty model (start at 100, deduct for violations)
+ * - Product/Business categories: cumulative model (start at 0, earn points per check)
  */
 export function calculateCategoryScores(
   violations: Violation[],
-  totalChecksPerCategory: Record<CheckCategory, number>
+  totalChecksPerCategory: Record<CheckCategory, number>,
+  checkResults?: CheckResult[]
 ): CategoryScore[] {
   const categories: CheckCategory[] = [
     "accessibility",
@@ -52,9 +69,27 @@ export function calculateCategoryScores(
   ];
 
   return categories.map((category) => {
+    const mode = SCORING_MODE[category];
     const categoryViolations = violations.filter(
       (v) => v.category === category
     );
+    const categoryChecks = checkResults?.filter(
+      (c) => c.category === category
+    ) ?? [];
+
+    if (mode === "cumulative" && categoryChecks.length > 0) {
+      // Cumulative: score based on checks passed, not violations
+      const passed = categoryChecks.filter((c) => c.passed).length;
+      return {
+        category,
+        score: calculateCumulativeScore(categoryChecks),
+        violations: categoryChecks.length - passed,
+        passed,
+        checks: categoryChecks,
+      };
+    }
+
+    // Penalty: traditional violation-based scoring
     const totalChecks = totalChecksPerCategory[category] ?? 0;
     const passed = Math.max(0, totalChecks - categoryViolations.length);
 

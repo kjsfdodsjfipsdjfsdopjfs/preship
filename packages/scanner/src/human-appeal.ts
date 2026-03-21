@@ -1,347 +1,399 @@
 import type { Page } from "puppeteer-core";
-import type { Violation } from "@preship/shared";
+import type { Violation, CheckResult, CheckCategory } from "@preship/shared";
 
 /**
- * Result from human appeal checks including violations and total check count.
+ * Result from human appeal checks including violations, check results, and total check count.
  */
 export interface HumanAppealCheckResult {
   violations: Violation[];
+  checkResults: CheckResult[];
   totalChecks: number;
 }
 
+const CATEGORY: CheckCategory = "human_appeal";
+
 /**
- * Run comprehensive human appeal checks against a page.
- *
- * Checks include:
- * - Above-the-fold meaningful content
- * - Trust signals (testimonials, logos, badges)
- * - Social proof (user counts, ratings)
- * - CTA clarity and quantity
- * - CTA text quality
- * - Favicon presence
- * - Logo in header/nav
- * - Footer completeness
+ * Run 20 comprehensive human appeal checks against a page.
+ * Uses CUMULATIVE scoring: each check earns points if passed, 0 if not.
  *
  * @param page - A Puppeteer Page that has already navigated to the target URL
  * @param url - The URL being checked (used in violation reports)
- * @returns HumanAppealCheckResult with violations and total check count
+ * @returns HumanAppealCheckResult with violations, checkResults, and total check count
  */
 export async function runHumanAppealChecks(
   page: Page,
   url: string
 ): Promise<HumanAppealCheckResult> {
   const violations: Violation[] = [];
-  const TOTAL_CHECKS = 8;
+  const checkResults: CheckResult[] = [];
+  const TOTAL_CHECKS = 20;
 
-  // 1. Check above-the-fold content
+  // Helper to add a check result and optionally a violation
+  function addCheck(
+    id: string,
+    name: string,
+    passed: boolean,
+    maxPoints: number,
+    howToFix?: string
+  ) {
+    checkResults.push({
+      id,
+      category: CATEGORY,
+      name,
+      passed,
+      points: passed ? maxPoints : 0,
+      maxPoints,
+      howToFix: passed ? undefined : howToFix,
+    });
+    if (!passed && howToFix) {
+      violations.push({
+        id: `${id}-${randomId()}`,
+        category: CATEGORY,
+        severity: maxPoints >= 5 ? "high" : "medium",
+        rule: id,
+        message: howToFix,
+        url,
+        help: howToFix,
+      });
+    }
+  }
+
+  // 1. Clear value proposition in hero (5pts)
   try {
-    const hasMeaningfulContent = await page.evaluate(() => {
-      // Look for text content outside of nav/header in the first 800px
-      const elements = document.querySelectorAll("h1, h2, p, [class*='hero'], [class*='headline']");
-      for (const el of elements) {
-        const rect = el.getBoundingClientRect();
-        const text = (el.textContent || "").trim();
-        // Element is above the fold and has meaningful text (not just nav items)
-        if (rect.top < 800 && text.length > 20 && el.closest("nav") === null) {
+    const passed = await page.evaluate(() => {
+      const headings = document.querySelectorAll("h1, h2");
+      for (const h of headings) {
+        const rect = h.getBoundingClientRect();
+        const text = (h.textContent || "").trim();
+        const wordCount = text.split(/\s+/).length;
+        if (rect.top < 600 && text.length > 10 && wordCount <= 15 && h.closest("nav") === null) {
           return true;
         }
       }
       return false;
     });
+    addCheck("human-appeal-value-proposition", "Clear Value Proposition", passed, 5,
+      "Add a clear headline (h1/h2) in the hero that communicates what the product does in under 15 words.");
+  } catch { addCheck("human-appeal-value-proposition", "Clear Value Proposition", false, 5); }
 
-    if (!hasMeaningfulContent) {
-      violations.push({
-        id: `human-appeal-no-atf-content-${randomId()}`,
-        category: "human_appeal",
-        severity: "high",
-        rule: "no-above-fold-content",
-        message: "No meaningful text content found above the fold (first 800px). Visitors may not understand your value proposition.",
-        url,
-        help: "Add a clear headline and supporting text in the hero section so visitors immediately understand what your product does.",
-      });
-    }
-  } catch (error) {
-    console.error(`[human-appeal] Above-the-fold check failed: ${errorMessage(error)}`);
-  }
-
-  // 2. Check trust signals (testimonials, customer logos, security badges)
+  // 2. Trust signals present (5pts)
   try {
-    const trustSignals = await page.evaluate(() => {
+    const passed = await page.evaluate(() => {
       const body = document.body?.innerHTML?.toLowerCase() ?? "";
-      const hasTestimonials =
-        /testimonial|review|what customers say|what people say|customer stories/i.test(body);
-
-      // Look for logo/partner sections
-      const logoSections = document.querySelectorAll(
-        '[class*="logo"], [class*="partner"], [class*="trusted"], [class*="client"], [class*="brand"]'
-      );
-      const hasCustomerLogos = logoSections.length > 0 &&
-        Array.from(logoSections).some((section) => section.querySelectorAll("img, svg").length >= 2);
-
-      // Look for security badges
-      const hasBadges = document.querySelectorAll(
-        '[class*="badge"], [class*="seal"], [class*="certified"], [alt*="secure"], [alt*="verified"]'
-      ).length > 0;
-
-      return { hasTestimonials, hasCustomerLogos, hasBadges };
+      let count = 0;
+      if (/testimonial|review|what customers say|what people say|customer stories/i.test(body)) count++;
+      const logoSections = document.querySelectorAll('[class*="logo"], [class*="partner"], [class*="trusted"], [class*="client"], [class*="brand"]');
+      if (logoSections.length > 0 && Array.from(logoSections).some(s => s.querySelectorAll("img, svg").length >= 2)) count++;
+      if (document.querySelectorAll('[class*="badge"], [class*="seal"], [class*="certified"], [alt*="secure"], [alt*="verified"]').length > 0) count++;
+      const caseStudy = /case stud|success stor/i.test(body);
+      if (caseStudy) count++;
+      return count >= 2;
     });
+    addCheck("human-appeal-trust-signals", "Trust Signals Present", passed, 5,
+      "Add at least 2 trust signals: testimonials, customer logos, badges, or case studies.");
+  } catch { addCheck("human-appeal-trust-signals", "Trust Signals Present", false, 5); }
 
-    if (!trustSignals.hasTestimonials && !trustSignals.hasCustomerLogos && !trustSignals.hasBadges) {
-      violations.push({
-        id: `human-appeal-no-trust-signals-${randomId()}`,
-        category: "human_appeal",
-        severity: "medium",
-        rule: "no-trust-signals",
-        message: "No trust signals found (testimonials, customer logos, or security badges).",
-        url,
-        help: "Add social proof elements like customer testimonials, partner logos, or trust badges to build credibility.",
-      });
-    }
-  } catch (error) {
-    console.error(`[human-appeal] Trust signals check failed: ${errorMessage(error)}`);
-  }
-
-  // 3. Check social proof (user counts, ratings)
+  // 3. Social proof with numbers (5pts)
   try {
-    const hasSocialProof = await page.evaluate(() => {
+    const passed = await page.evaluate(() => {
       const bodyText = document.body?.innerText ?? "";
-      // Match patterns like "10,000+ users", "5-star", "4.9 rating", "1M downloads"
-      const socialProofPatterns = [
+      const patterns = [
         /\d[\d,]*\+?\s*(users|customers|companies|teams|downloads|installs)/i,
         /\d+(\.\d+)?\s*(star|stars|rating)/i,
         /trusted by\s+\d/i,
         /used by\s+\d/i,
         /join\s+\d[\d,]*\+?\s*/i,
       ];
-      return socialProofPatterns.some((pattern) => pattern.test(bodyText));
+      return patterns.some(p => p.test(bodyText));
     });
+    addCheck("human-appeal-social-proof", "Social Proof with Numbers", passed, 5,
+      "Add specific stats like '10K+ users' or '4.9 stars' instead of vague claims.");
+  } catch { addCheck("human-appeal-social-proof", "Social Proof with Numbers", false, 5); }
 
-    if (!hasSocialProof) {
-      violations.push({
-        id: `human-appeal-no-social-proof-${randomId()}`,
-        category: "human_appeal",
-        severity: "low",
-        rule: "no-social-proof",
-        message: "No social proof detected (user counts, ratings, or usage stats).",
-        url,
-        help: "Add concrete numbers like user counts, star ratings, or download stats to demonstrate traction.",
-      });
-    }
-  } catch (error) {
-    console.error(`[human-appeal] Social proof check failed: ${errorMessage(error)}`);
-  }
-
-  // 4. Check CTA clarity — count CTAs above the fold
+  // 4. Real testimonials (5pts)
   try {
-    const ctaCount = await page.evaluate(() => {
+    const passed = await page.evaluate(() => {
+      const testimonials = document.querySelectorAll('blockquote, [class*="testimonial"], [class*="review"], [class*="quote"]');
+      if (testimonials.length === 0) return false;
+      return Array.from(testimonials).some(t => {
+        const text = (t.textContent || "").trim();
+        return text.length > 30 && !/lorem ipsum|placeholder|your name/i.test(text);
+      });
+    });
+    addCheck("human-appeal-real-testimonials", "Real Testimonials", passed, 5,
+      "Add real testimonials with names in blockquote or testimonial sections, not placeholder text.");
+  } catch { addCheck("human-appeal-real-testimonials", "Real Testimonials", false, 5); }
+
+  // 5. Team/founder visible (3pts)
+  try {
+    const passed = await page.evaluate(() => {
+      const links = Array.from(document.querySelectorAll("a"));
+      const aboutPatterns = /about|team|founder|our-story|who-we-are|company/i;
+      const hasAboutLink = links.some(l => {
+        const href = (l.getAttribute("href") ?? "").toLowerCase();
+        const text = (l.textContent ?? "").toLowerCase();
+        return aboutPatterns.test(href) || aboutPatterns.test(text);
+      });
+      const bodyText = document.body?.innerText?.toLowerCase() ?? "";
+      const hasFounderMention = /founder|ceo|co-founder|built by|created by|made by/i.test(bodyText);
+      return hasAboutLink || hasFounderMention;
+    });
+    addCheck("human-appeal-team-visible", "Team/Founder Visible", passed, 3,
+      "Add an about section or team page link with real content showing who is behind the product.");
+  } catch { addCheck("human-appeal-team-visible", "Team/Founder Visible", false, 3); }
+
+  // 6. Professional photography (3pts)
+  try {
+    const passed = await page.evaluate(() => {
+      const images = Array.from(document.querySelectorAll("img"));
+      const stockIndicators = /unsplash\.com|pexels\.com|placeholder\.com|via\.placeholder|stock|lorem|picsum/i;
+      const hasStock = images.some(img => {
+        const src = img.getAttribute("src") ?? "";
+        return stockIndicators.test(src);
+      });
+      return !hasStock;
+    });
+    addCheck("human-appeal-professional-photos", "Professional Photography", passed, 3,
+      "Replace obvious stock photos (unsplash/pexels URLs) with custom brand imagery.");
+  } catch { addCheck("human-appeal-professional-photos", "Professional Photography", false, 3); }
+
+  // 7. Contact info accessible (5pts)
+  try {
+    const passed = await page.evaluate(() => {
+      const hasEmail = document.querySelectorAll("a[href^='mailto:']").length > 0;
+      const hasPhone = document.querySelectorAll("a[href^='tel:']").length > 0;
+      const links = Array.from(document.querySelectorAll("a"));
+      const hasContactLink = links.some(l => {
+        const href = (l.getAttribute("href") ?? "").toLowerCase();
+        const text = (l.textContent ?? "").toLowerCase();
+        return href.includes("/contact") || text === "contact" || text === "contact us";
+      });
+      const forms = Array.from(document.querySelectorAll("form"));
+      const hasContactForm = forms.some(f => {
+        const text = (f.textContent ?? "").toLowerCase();
+        return text.includes("contact") || text.includes("message") || text.includes("get in touch");
+      });
+      return hasEmail || hasPhone || hasContactLink || hasContactForm;
+    });
+    addCheck("human-appeal-contact-info", "Contact Info Accessible", passed, 5,
+      "Add visible contact information: email, phone, or a contact form so visitors can reach you.");
+  } catch { addCheck("human-appeal-contact-info", "Contact Info Accessible", false, 5); }
+
+  // 8. Pricing is transparent (5pts)
+  try {
+    const passed = await page.evaluate(() => {
+      const bodyText = document.body?.innerText ?? "";
+      const hasPriceNumbers = /\$\d|€\d|£\d|\/mo|\/month|\/year|\/yr|free plan/i.test(bodyText);
+      const links = Array.from(document.querySelectorAll("a"));
+      const hasPricingLink = links.some(l => {
+        const href = (l.getAttribute("href") ?? "").toLowerCase();
+        const text = (l.textContent ?? "").toLowerCase();
+        return /pricing|plans|price/.test(href) || /pricing|plans|price/.test(text);
+      });
+      return hasPriceNumbers || hasPricingLink;
+    });
+    addCheck("human-appeal-transparent-pricing", "Transparent Pricing", passed, 5,
+      "Show prices on the page or link to a pricing page. Avoid 'contact for pricing' unless enterprise-only.");
+  } catch { addCheck("human-appeal-transparent-pricing", "Transparent Pricing", false, 5); }
+
+  // 9. Free trial/demo available (5pts)
+  try {
+    const passed = await page.evaluate(() => {
+      const bodyText = document.body?.innerText ?? "";
+      return /free trial|free plan|try free|start free|demo|freemium|get started free|no credit card/i.test(bodyText);
+    });
+    addCheck("human-appeal-free-trial", "Free Trial/Demo Available", passed, 5,
+      "Offer a free trial, demo, or freemium tier to lower the barrier for new users.");
+  } catch { addCheck("human-appeal-free-trial", "Free Trial/Demo Available", false, 5); }
+
+  // 10. Clear onboarding path (5pts)
+  try {
+    const passed = await page.evaluate(() => {
       const ctaSelectors = [
         'a[class*="cta"]', 'a[class*="btn"]', 'a[class*="button"]',
         'button[class*="cta"]', 'button[class*="btn"]', 'button[class*="primary"]',
         'a[class*="primary"]', '[role="button"]',
       ];
       const allCTAs = document.querySelectorAll(ctaSelectors.join(", "));
-      let aboveFoldCount = 0;
       for (const el of allCTAs) {
         const rect = el.getBoundingClientRect();
-        const text = (el.textContent || "").trim();
-        // Count visible CTAs above the fold with actual text
+        const text = (el.textContent || "").trim().toLowerCase();
         if (rect.top < 800 && rect.height > 0 && text.length > 0) {
-          aboveFoldCount++;
-        }
-      }
-      return aboveFoldCount;
-    });
-
-    if (ctaCount === 0) {
-      violations.push({
-        id: `human-appeal-no-cta-${randomId()}`,
-        category: "human_appeal",
-        severity: "high",
-        rule: "no-cta-above-fold",
-        message: "No call-to-action button found above the fold.",
-        url,
-        help: "Add a clear, prominent CTA button in your hero section to guide visitors toward the desired action.",
-      });
-    } else if (ctaCount > 4) {
-      violations.push({
-        id: `human-appeal-too-many-ctas-${randomId()}`,
-        category: "human_appeal",
-        severity: "medium",
-        rule: "too-many-ctas",
-        message: `Found ${ctaCount} competing CTAs above the fold. Too many options can overwhelm visitors.`,
-        url,
-        help: "Reduce the number of CTAs above the fold to 1-3. Prioritize your primary action and make it visually dominant.",
-      });
-    }
-  } catch (error) {
-    console.error(`[human-appeal] CTA clarity check failed: ${errorMessage(error)}`);
-  }
-
-  // 5. Check CTA text quality
-  try {
-    const ctaTextIssue = await page.evaluate(() => {
-      const ctaSelectors = [
-        'a[class*="cta"]', 'a[class*="btn"]', 'a[class*="button"]',
-        'button[class*="cta"]', 'button[class*="btn"]', 'button[class*="primary"]',
-        'a[class*="primary"]',
-      ];
-      const allCTAs = document.querySelectorAll(ctaSelectors.join(", "));
-      const genericTexts = /^(click here|submit|learn more|read more|go|press here|enter)$/i;
-
-      for (const el of allCTAs) {
-        const rect = el.getBoundingClientRect();
-        const text = (el.textContent || "").trim();
-        // Check the first visible CTA above the fold
-        if (rect.top < 800 && rect.height > 0 && text.length > 0) {
-          if (genericTexts.test(text)) {
-            return text;
+          const href = el.getAttribute("href") ?? "";
+          if (/sign|start|get started|register|try|demo|onboard/i.test(text) ||
+              /sign|start|register|onboard|app\./i.test(href)) {
+            return true;
           }
-          return null; // First CTA has good text
-        }
-      }
-      return null;
-    });
-
-    if (ctaTextIssue) {
-      violations.push({
-        id: `human-appeal-generic-cta-${randomId()}`,
-        category: "human_appeal",
-        severity: "medium",
-        rule: "generic-cta-text",
-        message: `Primary CTA uses generic text "${ctaTextIssue}". This doesn't communicate value.`,
-        url,
-        help: "Use action-oriented, specific CTA text like 'Start Free Trial', 'Get Started', or 'See Pricing' instead of generic labels.",
-      });
-    }
-  } catch (error) {
-    console.error(`[human-appeal] CTA text quality check failed: ${errorMessage(error)}`);
-  }
-
-  // 6. Check favicon
-  try {
-    const hasFavicon = await page.evaluate(() => {
-      const faviconSelectors = [
-        'link[rel="icon"]',
-        'link[rel="shortcut icon"]',
-        'link[rel="apple-touch-icon"]',
-        'link[rel="apple-touch-icon-precomposed"]',
-      ];
-      return faviconSelectors.some((sel) => document.querySelector(sel) !== null);
-    });
-
-    if (!hasFavicon) {
-      violations.push({
-        id: `human-appeal-no-favicon-${randomId()}`,
-        category: "human_appeal",
-        severity: "medium",
-        rule: "no-favicon",
-        message: "No favicon link tag found. The page may show a generic browser icon in tabs.",
-        url,
-        help: "Add a favicon to make your site look professional in browser tabs and bookmarks. Use <link rel='icon' href='/favicon.ico'>.",
-        helpUrl: "https://web.dev/articles/themed-html",
-      });
-    }
-  } catch (error) {
-    console.error(`[human-appeal] Favicon check failed: ${errorMessage(error)}`);
-  }
-
-  // 7. Check for logo in header/nav
-  try {
-    const hasLogoInHeader = await page.evaluate(() => {
-      const headerNav = document.querySelector("header, nav, [role='banner']");
-      if (!headerNav) return false;
-      const images = headerNav.querySelectorAll("img, svg");
-      // Check if any image/svg looks like a logo (in the header area, reasonably sized)
-      for (const img of images) {
-        const rect = img.getBoundingClientRect();
-        if (rect.width > 16 && rect.height > 16) {
-          return true;
         }
       }
       return false;
     });
+    addCheck("human-appeal-onboarding-path", "Clear Onboarding Path", passed, 5,
+      "Ensure the primary CTA leads to signup or getting-started, not a dead end.");
+  } catch { addCheck("human-appeal-onboarding-path", "Clear Onboarding Path", false, 5); }
 
-    if (!hasLogoInHeader) {
-      violations.push({
-        id: `human-appeal-no-header-logo-${randomId()}`,
-        category: "human_appeal",
-        severity: "low",
-        rule: "no-header-logo",
-        message: "No logo image or SVG found in the header/nav area.",
-        url,
-        help: "Add your logo to the header so visitors can immediately identify your brand.",
-      });
-    }
-  } catch (error) {
-    console.error(`[human-appeal] Logo in header check failed: ${errorMessage(error)}`);
-  }
-
-  // 8. Check footer completeness
+  // 11. FAQ section exists (3pts)
   try {
-    const footerInfo = await page.evaluate(() => {
-      const footer = document.querySelector("footer, [role='contentinfo']");
-      if (!footer) return { exists: false, linkGroupCount: 0 };
-
-      const links = footer.querySelectorAll("a");
-      const linkTexts = Array.from(links).map((a) => (a.textContent || "").trim().toLowerCase());
-      const hrefs = Array.from(links).map((a) => (a.getAttribute("href") || "").toLowerCase());
-
-      // Check for social links
-      const hasSocialLinks = hrefs.some((h) =>
-        /twitter\.com|x\.com|facebook\.com|linkedin\.com|instagram\.com|youtube\.com|github\.com/.test(h)
-      );
-
-      // Check for legal links
-      const hasLegalLinks = linkTexts.some((t) =>
-        /privacy|terms|legal|cookie|imprint|disclaimer/.test(t)
-      );
-
-      // Check for contact info
-      const footerText = footer.textContent?.toLowerCase() ?? "";
-      const hasContactInfo =
-        linkTexts.some((t) => /contact|email|support/.test(t)) ||
-        /contact|email|support|@/.test(footerText);
-
-      let linkGroupCount = 0;
-      if (hasSocialLinks) linkGroupCount++;
-      if (hasLegalLinks) linkGroupCount++;
-      if (hasContactInfo) linkGroupCount++;
-
-      return { exists: true, linkGroupCount };
+    const passed = await page.evaluate(() => {
+      const body = document.body?.innerHTML?.toLowerCase() ?? "";
+      const hasFAQ = /faq|frequently asked|common questions/i.test(body);
+      const hasAccordion = document.querySelectorAll('details, [class*="faq"], [class*="accordion"], [id*="faq"]').length > 0;
+      return hasFAQ || hasAccordion;
     });
+    addCheck("human-appeal-faq", "FAQ Section", passed, 3,
+      "Add a FAQ section to address common questions and reduce support burden.");
+  } catch { addCheck("human-appeal-faq", "FAQ Section", false, 3); }
 
-    if (!footerInfo.exists) {
-      violations.push({
-        id: `human-appeal-no-footer-${randomId()}`,
-        category: "human_appeal",
-        severity: "medium",
-        rule: "no-footer",
-        message: "No footer element found on the page.",
-        url,
-        help: "Add a footer with social links, legal links, and contact information to build trust and professionalism.",
+  // 12. Live chat/support widget (3pts)
+  try {
+    const passed = await page.evaluate(() => {
+      const chatSelectors = [
+        '[class*="chat-widget"]', '[class*="intercom"]', '[class*="crisp"]',
+        '[class*="drift"]', '[class*="zendesk"]', '[class*="tawk"]',
+        '[id*="chat-widget"]', '[id*="intercom"]', '[id*="crisp"]',
+        'iframe[src*="intercom"]', 'iframe[src*="crisp"]', 'iframe[src*="tawk"]',
+      ];
+      if (document.querySelectorAll(chatSelectors.join(", ")).length > 0) return true;
+      const links = Array.from(document.querySelectorAll("a"));
+      return links.some(l => {
+        const text = (l.textContent ?? "").toLowerCase();
+        const href = (l.getAttribute("href") ?? "").toLowerCase();
+        return /live chat|support|help center|help desk/i.test(text) || /support|help|helpdesk/i.test(href);
       });
-    } else if (footerInfo.linkGroupCount < 3) {
-      violations.push({
-        id: `human-appeal-incomplete-footer-${randomId()}`,
-        category: "human_appeal",
-        severity: "low",
-        rule: "incomplete-footer",
-        message: `Footer is missing some expected content. Found ${footerInfo.linkGroupCount}/3 link groups (social, legal, contact).`,
-        url,
-        help: "A complete footer should include social media links, legal/privacy links, and contact information.",
-      });
-    }
-  } catch (error) {
-    console.error(`[human-appeal] Footer check failed: ${errorMessage(error)}`);
-  }
+    });
+    addCheck("human-appeal-support-widget", "Live Chat/Support", passed, 3,
+      "Add a live chat widget or visible support link so users can get help quickly.");
+  } catch { addCheck("human-appeal-support-widget", "Live Chat/Support", false, 3); }
 
-  return { violations, totalChecks: TOTAL_CHECKS };
+  // 13. Security/privacy badges (3pts)
+  try {
+    const passed = await page.evaluate(() => {
+      const body = document.body?.innerHTML?.toLowerCase() ?? "";
+      const hasBadges = document.querySelectorAll(
+        '[class*="badge"], [class*="seal"], [class*="certified"], [alt*="secure"], [alt*="verified"], [alt*="soc"], [alt*="gdpr"]'
+      ).length > 0;
+      const hasSecurityText = /soc\s*2|gdpr|iso\s*27001|hipaa|pci|ssl secured|256.bit|encrypted/i.test(body);
+      return hasBadges || hasSecurityText;
+    });
+    addCheck("human-appeal-security-badges", "Security/Privacy Badges", passed, 3,
+      "Display trust badges or security certifications (SOC 2, GDPR, SSL) to build confidence.");
+  } catch { addCheck("human-appeal-security-badges", "Security/Privacy Badges", false, 3); }
+
+  // 14. Video demo or tour (5pts)
+  try {
+    const passed = await page.evaluate(() => {
+      const hasVideo = document.querySelectorAll("video").length > 0;
+      const hasEmbed = document.querySelectorAll(
+        'iframe[src*="youtube"], iframe[src*="vimeo"], iframe[src*="loom"], iframe[src*="wistia"], [class*="video"]'
+      ).length > 0;
+      const links = Array.from(document.querySelectorAll("a"));
+      const hasVideoLink = links.some(l => {
+        const href = (l.getAttribute("href") ?? "").toLowerCase();
+        return /youtube\.com|vimeo\.com|loom\.com|wistia\.com/i.test(href);
+      });
+      return hasVideo || hasEmbed || hasVideoLink;
+    });
+    addCheck("human-appeal-video-demo", "Video Demo or Tour", passed, 5,
+      "Add a product demo video (YouTube, Vimeo, Loom) to show the product in action.");
+  } catch { addCheck("human-appeal-video-demo", "Video Demo or Tour", false, 5); }
+
+  // 15. Customer success stories (3pts)
+  try {
+    const passed = await page.evaluate(() => {
+      const body = document.body?.innerHTML?.toLowerCase() ?? "";
+      const links = Array.from(document.querySelectorAll("a"));
+      const hasCaseStudies = /case stud|success stor|customer stor/i.test(body);
+      const hasCaseStudyLink = links.some(l => {
+        const href = (l.getAttribute("href") ?? "").toLowerCase();
+        const text = (l.textContent ?? "").toLowerCase();
+        return /case-stud|success-stor|customer-stor/i.test(href) || /case stud|success stor/i.test(text);
+      });
+      return hasCaseStudies || hasCaseStudyLink;
+    });
+    addCheck("human-appeal-success-stories", "Customer Success Stories", passed, 3,
+      "Add case study links or detailed customer success stories to demonstrate value.");
+  } catch { addCheck("human-appeal-success-stories", "Customer Success Stories", false, 3); }
+
+  // 16. Press/media mentions (3pts)
+  try {
+    const passed = await page.evaluate(() => {
+      const body = document.body?.innerHTML?.toLowerCase() ?? "";
+      return /as seen in|featured in|press|media|in the news|mentioned by/i.test(body) ||
+        document.querySelectorAll('[class*="press"], [class*="media"], [class*="featured-in"], [class*="as-seen"]').length > 0;
+    });
+    addCheck("human-appeal-press-mentions", "Press/Media Mentions", passed, 3,
+      "Add an 'As seen in' section with press logos or media mentions for credibility.");
+  } catch { addCheck("human-appeal-press-mentions", "Press/Media Mentions", false, 3); }
+
+  // 17. Favicon is custom (3pts)
+  try {
+    const passed = await page.evaluate(() => {
+      const selectors = [
+        'link[rel="icon"]', 'link[rel="shortcut icon"]',
+        'link[rel="apple-touch-icon"]', 'link[rel="apple-touch-icon-precomposed"]',
+      ];
+      return selectors.some(sel => document.querySelector(sel) !== null);
+    });
+    addCheck("human-appeal-favicon", "Custom Favicon", passed, 3,
+      "Add a custom favicon with <link rel='icon' href='/favicon.ico'> for professional browser tabs.");
+  } catch { addCheck("human-appeal-favicon", "Custom Favicon", false, 3); }
+
+  // 18. Logo in header (3pts)
+  try {
+    const passed = await page.evaluate(() => {
+      const headerNav = document.querySelector("header, nav, [role='banner']");
+      if (!headerNav) return false;
+      const images = headerNav.querySelectorAll("img, svg");
+      for (const img of images) {
+        const rect = img.getBoundingClientRect();
+        if (rect.width > 16 && rect.height > 16) return true;
+      }
+      return false;
+    });
+    addCheck("human-appeal-header-logo", "Logo in Header", passed, 3,
+      "Add your logo to the header/nav so visitors can immediately identify your brand.");
+  } catch { addCheck("human-appeal-header-logo", "Logo in Header", false, 3); }
+
+  // 19. Footer with essential links (5pts)
+  try {
+    const passed = await page.evaluate(() => {
+      const footer = document.querySelector("footer, [role='contentinfo']");
+      if (!footer) return false;
+      const links = footer.querySelectorAll("a");
+      const linkTexts = Array.from(links).map(a => (a.textContent || "").trim().toLowerCase());
+      const hrefs = Array.from(links).map(a => (a.getAttribute("href") || "").toLowerCase());
+      const hasSocial = hrefs.some(h => /twitter\.com|x\.com|facebook\.com|linkedin\.com|instagram\.com|youtube\.com|github\.com/.test(h));
+      const hasLegal = linkTexts.some(t => /privacy|terms|legal|cookie|imprint/.test(t));
+      const footerText = footer.textContent?.toLowerCase() ?? "";
+      const hasContact = linkTexts.some(t => /contact|email|support/.test(t)) || /contact|@/.test(footerText);
+      let groups = 0;
+      if (hasSocial) groups++;
+      if (hasLegal) groups++;
+      if (hasContact) groups++;
+      return groups >= 3;
+    });
+    addCheck("human-appeal-footer-links", "Footer with Essential Links", passed, 5,
+      "Add a complete footer with social media links, legal/privacy links, and contact information.");
+  } catch { addCheck("human-appeal-footer-links", "Footer with Essential Links", false, 5); }
+
+  // 20. Page loads fast visually (5pts)
+  try {
+    const passed = await page.evaluate(() => {
+      const entries = performance.getEntriesByType("paint") as PerformanceEntry[];
+      const fcp = entries.find(e => e.name === "first-contentful-paint");
+      if (fcp && fcp.startTime < 3000) return true;
+      // Fallback: if paint entries not available, check if page loaded quickly
+      const nav = performance.getEntriesByType("navigation") as PerformanceNavigationTiming[];
+      if (nav.length > 0 && nav[0].domContentLoadedEventEnd < 3000) return true;
+      return false;
+    });
+    addCheck("human-appeal-fast-load", "Fast Visual Load", passed, 5,
+      "Optimize page so meaningful content renders in under 3 seconds (FCP < 3s).");
+  } catch { addCheck("human-appeal-fast-load", "Fast Visual Load", false, 5); }
+
+  return { violations, checkResults, totalChecks: TOTAL_CHECKS };
 }
 
 function randomId(): string {
   return Math.random().toString(36).slice(2, 8);
-}
-
-function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
 }

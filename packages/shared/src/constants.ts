@@ -68,6 +68,24 @@ export const CATEGORY_WEIGHTS: Record<CheckCategory, number> = {
   growth: 0.08,
 };
 
+// ── Scoring mode per category ────────────────────────────────────────
+// "penalty" = start at 100, deduct for violations (used by technical scanners)
+// "cumulative" = start at 0, earn points per check passed (used by product/business scanners)
+export const SCORING_MODE: Record<CheckCategory, "penalty" | "cumulative"> = {
+  accessibility: "penalty",
+  security: "penalty",
+  performance: "penalty",
+  seo: "penalty",
+  privacy: "penalty",
+  mobile: "penalty",
+  ux: "cumulative",
+  design: "cumulative",
+  human_appeal: "cumulative",
+  business: "cumulative",
+  revenue: "cumulative",
+  growth: "cumulative",
+};
+
 // ── Score thresholds ─────────────────────────────────────────────────
 
 export const SCORE_THRESHOLDS = {

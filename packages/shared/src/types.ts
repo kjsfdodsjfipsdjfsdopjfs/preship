@@ -95,6 +95,18 @@ export const ShipReadiness = {
 
 export type ShipReadiness = (typeof ShipReadiness)[keyof typeof ShipReadiness];
 
+// ── Check Results (per-check breakdown) ──────────────────────────────
+
+export interface CheckResult {
+  id: string;
+  category: CheckCategory;
+  name: string;
+  passed: boolean;
+  points: number;
+  maxPoints: number;
+  howToFix?: string;
+}
+
 // ── Scan Types ───────────────────────────────────────────────────────
 
 export const ScanStatus = {
@@ -111,6 +123,7 @@ export interface CategoryScore {
   score: number;
   violations: number;
   passed: number;
+  checks?: CheckResult[];
 }
 
 export interface FrameworkInfo {

@@ -6,6 +6,7 @@ import {
   type Violation,
   type FixSuggestion,
   type CheckCategory,
+  type CheckResult,
   type CategoryScore,
   type Severity,
   type FrameworkInfo,
@@ -28,6 +29,7 @@ export interface ReportInput {
   framework?: FrameworkInfo;
   checksRun?: CheckCategory[];
   totalChecksPerCategory?: Record<CheckCategory, number>;
+  checkResults?: CheckResult[];
 }
 
 /**
@@ -129,7 +131,8 @@ export function buildReport(input: ReportInput): ScanResult {
 
   const categories = calculateCategoryScores(
     input.violations,
-    totalChecksPerCategory
+    totalChecksPerCategory,
+    input.checkResults
   );
 
   // Use weighted scoring instead of simple average
