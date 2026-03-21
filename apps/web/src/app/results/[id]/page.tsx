@@ -21,11 +21,22 @@ interface Violation {
   helpUrl?: string;
 }
 
+interface CheckResult {
+  id: string;
+  category: string;
+  name: string;
+  passed: boolean;
+  points: number;
+  maxPoints: number;
+  howToFix?: string;
+}
+
 interface CategoryScore {
   category: string;
   score: number;
   violations: number;
   passed?: number;
+  checks?: CheckResult[];
 }
 
 interface PillarScore {
@@ -114,11 +125,14 @@ function computeShipReadiness(score: number): ShipReadiness {
   return "DO NOT SHIP";
 }
 
-const PILLAR_CONFIG: Record<string, { icon: string; label: string; categories: string[] }> = {
-  technical: { icon: "\uD83D\uDCCA", label: "Technical Reality", categories: ["accessibility", "security", "performance", "seo", "privacy", "mobile"] },
-  product: { icon: "\uD83C\uDFA8", label: "Product Reality", categories: ["ux", "design", "human_appeal"] },
-  business: { icon: "\uD83D\uDCB0", label: "Business Reality", categories: ["business", "revenue", "growth"] },
+const PILLAR_CONFIG: Record<string, { icon: string; label: string; weight: string; categories: string[] }> = {
+  technical: { icon: "\uD83D\uDCCA", label: "Technical Reality", weight: "40%", categories: ["accessibility", "security", "performance", "seo", "privacy", "mobile"] },
+  product: { icon: "\uD83C\uDFA8", label: "Product Reality", weight: "35%", categories: ["ux", "design", "human_appeal"] },
+  business: { icon: "\uD83D\uDCB0", label: "Business Reality", weight: "25%", categories: ["business", "revenue", "growth"] },
 };
+
+/* Categories that use cumulative check-based scoring */
+const CUMULATIVE_CATEGORIES = new Set(["ux", "design", "human_appeal", "business", "revenue", "growth"]);
 
 const ALL_CATEGORY_LABELS: Record<string, string> = {
   accessibility: "Accessibility",
@@ -255,32 +269,44 @@ function ShipReadinessBadge({ readiness }: { readiness: ShipReadiness }) {
 /* ------------------------------------------------------------------ */
 /* Pillar Card                                                         */
 /* ------------------------------------------------------------------ */
-function PillarCard({ pillar, score, categories, icon }: { pillar: string; score: number; categories: CategoryScore[]; icon: string }) {
+function PillarCard({ pillar, score, categories, icon, weight }: { pillar: string; score: number; categories: CategoryScore[]; icon: string; weight?: string }) {
   const color = getScoreColor(score);
+
+  // Count total checks passed across cumulative categories
+  const allChecks = categories.flatMap((c) => c.checks ?? []);
+  const passedChecks = allChecks.filter((ch) => ch.passed).length;
+  const totalChecks = allChecks.length;
+
   return (
     <div className="rounded-xl border border-neutral-800 bg-neutral-900 overflow-hidden flex flex-col">
       {/* Header with score */}
-      <div className="px-5 py-4 flex items-center justify-between" style={{ borderBottom: `1px solid ${color}20` }}>
-        <div className="flex items-center gap-2">
-          <span className="text-xl">{icon}</span>
-          <div>
-            <span className="text-sm font-semibold text-white block">{pillar}</span>
-          </div>
+      <div className="px-4 py-3 flex items-center gap-3" style={{ borderBottom: `1px solid ${color}20` }}>
+        <span className="text-lg flex-shrink-0">{icon}</span>
+        <div className="flex-1 min-w-0">
+          <span className="text-sm font-semibold text-white block leading-tight truncate">{pillar}</span>
+          {weight && <span className="text-[10px] text-neutral-500">{weight} weight</span>}
         </div>
-        <div className="text-right">
-          <span className="text-2xl font-bold tabular-nums" style={{ color }}>{score}</span>
-          <span className="text-xs text-neutral-500 ml-0.5">/100</span>
+        <div className="flex-shrink-0 text-right">
+          <span className="text-2xl font-bold tabular-nums leading-none" style={{ color }}>{score}</span>
+          <span className="text-[10px] text-neutral-500">/100</span>
         </div>
       </div>
       {/* Category bars */}
-      <div className="px-5 py-4 space-y-2.5 flex-1">
+      <div className="px-4 py-3 space-y-2.5 flex-1">
         {categories.map((cat) => {
           const catColor = getScoreColor(cat.score);
+          const catChecks = cat.checks ?? [];
+          const catPassed = catChecks.filter((ch) => ch.passed).length;
           return (
             <div key={cat.category}>
               <div className="flex items-center justify-between mb-1">
-                <span className="text-xs text-neutral-400">{ALL_CATEGORY_LABELS[cat.category] || cat.category}</span>
-                <span className="text-xs font-medium tabular-nums" style={{ color: catColor }}>{cat.score}</span>
+                <span className="text-xs text-neutral-400 truncate">{ALL_CATEGORY_LABELS[cat.category] || cat.category}</span>
+                <div className="flex items-center gap-1.5 flex-shrink-0">
+                  {catChecks.length > 0 && (
+                    <span className="text-[10px] text-neutral-500">{catPassed}/{catChecks.length}</span>
+                  )}
+                  <span className="text-xs font-medium tabular-nums" style={{ color: catColor }}>{cat.score}</span>
+                </div>
               </div>
               <div className="h-1.5 rounded-full bg-neutral-800 overflow-hidden">
                 <div className="h-full rounded-full transition-all duration-700" style={{ width: `${cat.score}%`, background: `linear-gradient(90deg, ${catColor}CC, ${catColor})` }} />
@@ -289,6 +315,15 @@ function PillarCard({ pillar, score, categories, icon }: { pillar: string; score
           );
         })}
       </div>
+      {/* Checks passed summary */}
+      {totalChecks > 0 && (
+        <div className="px-4 py-2 border-t border-neutral-800 flex items-center justify-between">
+          <span className="text-[10px] text-neutral-500">Checks passed</span>
+          <span className="text-xs font-medium tabular-nums" style={{ color: passedChecks === totalChecks ? "#22C55E" : passedChecks >= totalChecks * 0.7 ? "#EAB308" : "#EF4444" }}>
+            {passedChecks}/{totalChecks}
+          </span>
+        </div>
+      )}
     </div>
   );
 }
@@ -614,6 +649,87 @@ function ViolationGroup({
 }
 
 /* ------------------------------------------------------------------ */
+/* Checklist view — for cumulative-scored categories                   */
+/* ------------------------------------------------------------------ */
+function ChecklistGroup({
+  category,
+  checks,
+  defaultOpen,
+}: {
+  category: string;
+  checks: CheckResult[];
+  defaultOpen: boolean;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+  const labels = ALL_CATEGORY_LABELS;
+  const passed = checks.filter((c) => c.passed).length;
+  const failed = checks.length - passed;
+
+  return (
+    <div className="border border-neutral-800 rounded-lg overflow-hidden">
+      <button
+        onClick={() => setOpen(!open)}
+        className="w-full flex items-center gap-3 px-4 py-3 bg-neutral-900/80 hover:bg-neutral-900 transition-colors text-left cursor-pointer"
+      >
+        <svg
+          className={`w-4 h-4 text-neutral-500 transition-transform ${open ? "rotate-90" : ""}`}
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+        </svg>
+        <span className="text-sm font-medium text-white flex-1">
+          {labels[category] || category}
+        </span>
+        {passed > 0 && (
+          <span className="text-[10px] px-1.5 py-0.5 rounded bg-green-500/10 text-green-400 font-medium">
+            {passed} passed
+          </span>
+        )}
+        {failed > 0 && (
+          <span className="text-[10px] px-1.5 py-0.5 rounded bg-red-500/10 text-red-400 font-medium">
+            {failed} failed
+          </span>
+        )}
+        <span className="text-xs text-neutral-500 tabular-nums">
+          {passed}/{checks.length}
+        </span>
+      </button>
+
+      {open && (
+        <div className="divide-y divide-neutral-800/50">
+          {checks.map((check) => (
+            <div key={check.id} className="px-4 py-2.5">
+              <div className="flex items-start gap-2.5">
+                <span className="flex-shrink-0 mt-0.5 text-sm leading-none">
+                  {check.passed ? "\u2705" : "\u274C"}
+                </span>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className={`text-sm leading-snug ${check.passed ? "text-neutral-300" : "text-white"}`}>
+                      {check.name}
+                    </span>
+                    <span className={`text-[10px] flex-shrink-0 tabular-nums font-medium ${check.passed ? "text-green-400" : "text-red-400"}`}>
+                      {check.passed ? `+${check.points}pts` : `0/${check.maxPoints}pts`}
+                    </span>
+                  </div>
+                  {!check.passed && check.howToFix && (
+                    <p className="text-xs text-neutral-500 mt-1 leading-relaxed pl-0.5" style={{ borderLeft: "2px solid #F97316", paddingLeft: "8px" }}>
+                      {check.howToFix}
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
 /* Main Results Page                                                   */
 /* ------------------------------------------------------------------ */
 export default function ResultsPage() {
@@ -731,6 +847,10 @@ export default function ResultsPage() {
   // Sort categories: most issues first
   const sortedCategories = Object.entries(grouped).sort((a, b) => b[1].length - a[1].length);
 
+  // Check if any category has checklist data
+  const hasChecks = categories.some((c) => c.checks && c.checks.length > 0);
+  const hasIssuesOrChecks = violations.length > 0 || hasChecks;
+
   // Share
   const twitterText = `Just scanned ${domain} with @preshipdev — scored ${scan.overallScore}/100. Check your app free at preship.dev`;
   const twitterUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(twitterText)}`;
@@ -797,6 +917,7 @@ export default function ResultsPage() {
                       score={p.score}
                       categories={p.categories}
                       icon={config?.icon || "\uD83D\uDCCA"}
+                      weight={config?.weight}
                     />
                   );
                 })}
@@ -839,36 +960,38 @@ export default function ResultsPage() {
             </div>
           )}
 
-          {/* ========== ISSUES — organized by pillar then category ========== */}
-          {violations.length > 0 && (
+          {/* ========== ISSUES & CHECKLISTS — organized by pillar then category ========== */}
+          {hasIssuesOrChecks && (
             <div className="mb-6">
               <div className="flex items-center justify-between mb-3">
                 <h2 className="text-sm font-semibold text-neutral-400 uppercase tracking-wider">
-                  Issues by category
+                  {violations.length > 0 ? "Issues & checks" : "Checks by category"}
                 </h2>
-                <button
-                  onClick={() => {
-                    const lines = violations.map((v) => {
-                      const t = translateViolation(v);
-                      return `[${v.category.toUpperCase()}] [${v.severity}] ${t.title}\n  ${t.description}${v.selector ? `\n  Element: ${v.selector}` : ""}`;
-                    });
-                    const text = `PreShip Reality Check — ${domain}\nReality Score: ${scan.overallScore}/100\nVerdict: ${shipReadiness}\n${violations.length} issues found\n${"=".repeat(50)}\n\n${lines.join("\n\n")}`;
-                    const blob = new Blob([text], { type: "text/plain" });
-                    const url = URL.createObjectURL(blob);
-                    const a = document.createElement("a");
-                    a.href = url;
-                    a.download = `preship-${domain}-violations.txt`;
-                    a.click();
-                    URL.revokeObjectURL(url);
-                    showToast("Full report downloaded!");
-                  }}
-                  className="text-xs text-neutral-500 hover:text-orange-400 transition-colors cursor-pointer flex items-center gap-1"
-                >
-                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                  </svg>
-                  Download all {violations.length}
-                </button>
+                {violations.length > 0 && (
+                  <button
+                    onClick={() => {
+                      const lines = violations.map((v) => {
+                        const t = translateViolation(v);
+                        return `[${v.category.toUpperCase()}] [${v.severity}] ${t.title}\n  ${t.description}${v.selector ? `\n  Element: ${v.selector}` : ""}`;
+                      });
+                      const text = `PreShip Reality Check — ${domain}\nReality Score: ${scan.overallScore}/100\nVerdict: ${shipReadiness}\n${violations.length} issues found\n${"=".repeat(50)}\n\n${lines.join("\n\n")}`;
+                      const blob = new Blob([text], { type: "text/plain" });
+                      const url = URL.createObjectURL(blob);
+                      const a = document.createElement("a");
+                      a.href = url;
+                      a.download = `preship-${domain}-violations.txt`;
+                      a.click();
+                      URL.revokeObjectURL(url);
+                      showToast("Full report downloaded!");
+                    }}
+                    className="text-xs text-neutral-500 hover:text-orange-400 transition-colors cursor-pointer flex items-center gap-1"
+                  >
+                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                    </svg>
+                    Download all {violations.length}
+                  </button>
+                )}
               </div>
 
               {/* Organize by pillar groups if we have pillar data */}
@@ -876,9 +999,15 @@ export default function ResultsPage() {
                 <div className="space-y-6">
                   {pillarData.map((p) => {
                     const config = PILLAR_CONFIG[p.pillar];
-                    const pillarCategories = config?.categories || [];
-                    const pillarViolations = sortedCategories.filter(([cat]) => pillarCategories.includes(cat));
-                    if (pillarViolations.length === 0) return null;
+                    const pillarCategoryKeys = config?.categories || [];
+                    const pillarViolations = sortedCategories.filter(([cat]) => pillarCategoryKeys.includes(cat));
+
+                    // Gather checklist data for cumulative categories in this pillar
+                    const pillarChecklistCats = p.categories.filter(
+                      (c) => CUMULATIVE_CATEGORIES.has(c.category) && c.checks && c.checks.length > 0
+                    );
+
+                    if (pillarViolations.length === 0 && pillarChecklistCats.length === 0) return null;
                     return (
                       <div key={p.pillar}>
                         <div className="flex items-center gap-2 mb-2">
@@ -886,13 +1015,23 @@ export default function ResultsPage() {
                           <h3 className="text-xs font-semibold text-neutral-500 uppercase tracking-wider">{config?.label || p.pillar}</h3>
                         </div>
                         <div className="space-y-2">
+                          {/* Checklist groups for cumulative categories */}
+                          {pillarChecklistCats.map((cat, idx) => (
+                            <ChecklistGroup
+                              key={`checklist-${cat.category}`}
+                              category={cat.category}
+                              checks={cat.checks!}
+                              defaultOpen={pillarViolations.length === 0 && idx === 0}
+                            />
+                          ))}
+                          {/* Violation groups for technical categories */}
                           {pillarViolations.map(([category, items], idx) => (
                             <ViolationGroup
                               key={category}
                               category={category}
                               violations={items}
                               totalRaw={items.length}
-                              defaultOpen={idx === 0}
+                              defaultOpen={pillarChecklistCats.length === 0 && idx === 0}
                             />
                           ))}
                         </div>
