@@ -17,6 +17,12 @@ import {
 import { runSeoChecks } from "./seo";
 import { runPrivacyChecks } from "./privacy";
 import { runMobileChecks } from "./mobile";
+import { runUxUiChecks } from "./ux-ui";
+import { runDesignChecks } from "./design";
+import { runBusinessChecks } from "./business";
+import { runHumanAppealChecks } from "./human-appeal";
+import { runRevenueChecks } from "./revenue";
+import { runGrowthChecks } from "./growth";
 import { crawlSite } from "./crawler";
 import { detectChallenge, waitForChallengeResolution } from "./challenge-detector";
 import { buildReport } from "./reporter";
@@ -39,6 +45,12 @@ export {
 export { runSeoChecks } from "./seo";
 export { runPrivacyChecks } from "./privacy";
 export { runMobileChecks } from "./mobile";
+export { runUxUiChecks } from "./ux-ui";
+export { runDesignChecks } from "./design";
+export { runBusinessChecks } from "./business";
+export { runHumanAppealChecks } from "./human-appeal";
+export { runRevenueChecks } from "./revenue";
+export { runGrowthChecks } from "./growth";
 export { crawlSite } from "./crawler";
 export { detectChallenge, waitForChallengeResolution } from "./challenge-detector";
 export { generateFixSuggestions } from "./fix-suggestions";
@@ -90,9 +102,10 @@ function pickRandom<T>(arr: T[]): T {
 
 /**
  * Main scanner entry point. Takes a URL, launches a headless browser,
- * runs accessibility/security/performance/seo/privacy/mobile checks
+ * runs 12 check categories (accessibility, security, performance, seo,
+ * privacy, mobile, ux, design, human_appeal, business, revenue, growth)
  * across discovered pages, generates fix suggestions, and returns
- * structured results.
+ * structured results with 3-pillar scoring (Technical/Product/Business).
  *
  * Uses puppeteer-extra with stealth plugin to bypass bot protection
  * on sites like Stripe, GitHub, and Vercel.
@@ -199,6 +212,12 @@ export async function scan(
     let totalSeoChecks = 0;
     let totalPrivacyChecks = 0;
     let totalMobileChecks = 0;
+    let totalUxChecks = 0;
+    let totalDesignChecks = 0;
+    let totalHumanAppealChecks = 0;
+    let totalBusinessChecks = 0;
+    let totalRevenueChecks = 0;
+    let totalGrowthChecks = 0;
 
     // Scan each discovered page (use fresh page per URL to avoid frame issues)
     for (const pageUrl of urls) {
@@ -250,6 +269,12 @@ export async function scan(
         totalSeoChecks += pageViolations.seoChecks;
         totalPrivacyChecks += pageViolations.privacyChecks;
         totalMobileChecks += pageViolations.mobileChecks;
+        totalUxChecks += pageViolations.uxChecks;
+        totalDesignChecks += pageViolations.designChecks;
+        totalHumanAppealChecks += pageViolations.humanAppealChecks;
+        totalBusinessChecks += pageViolations.businessChecks;
+        totalRevenueChecks += pageViolations.revenueChecks;
+        totalGrowthChecks += pageViolations.growthChecks;
       } catch (pageError) {
         const message =
           pageError instanceof Error ? pageError.message : String(pageError);
@@ -276,6 +301,12 @@ export async function scan(
         totalSeoChecks += 10;
         totalPrivacyChecks += 5;
         totalMobileChecks += 6;
+        totalUxChecks += 10;
+        totalDesignChecks += 8;
+        totalHumanAppealChecks += 8;
+        totalBusinessChecks += 7;
+        totalRevenueChecks += 7;
+        totalGrowthChecks += 8;
       }
     }
 
@@ -311,6 +342,12 @@ export async function scan(
         seo: totalSeoChecks > 0 ? totalSeoChecks : 0,
         privacy: totalPrivacyChecks > 0 ? totalPrivacyChecks : 0,
         mobile: totalMobileChecks > 0 ? totalMobileChecks : 0,
+        ux: totalUxChecks > 0 ? totalUxChecks : 0,
+        design: totalDesignChecks > 0 ? totalDesignChecks : 0,
+        human_appeal: totalHumanAppealChecks > 0 ? totalHumanAppealChecks : 0,
+        business: totalBusinessChecks > 0 ? totalBusinessChecks : 0,
+        revenue: totalRevenueChecks > 0 ? totalRevenueChecks : 0,
+        growth: totalGrowthChecks > 0 ? totalGrowthChecks : 0,
       },
     });
   } catch (error) {
@@ -371,6 +408,12 @@ interface SinglePageResult {
   seoChecks: number;
   privacyChecks: number;
   mobileChecks: number;
+  uxChecks: number;
+  designChecks: number;
+  humanAppealChecks: number;
+  businessChecks: number;
+  revenueChecks: number;
+  growthChecks: number;
 }
 
 /**
@@ -400,6 +443,12 @@ async function scanSinglePage(
   let seoChecks = 0;
   let privacyChecks = 0;
   let mobileChecks = 0;
+  let uxChecks = 0;
+  let designChecks = 0;
+  let humanAppealChecks = 0;
+  let businessChecks = 0;
+  let revenueChecks = 0;
+  let growthChecks = 0;
 
   // Navigate to the page
   const response = await page.goto(pageUrl, {
@@ -425,6 +474,12 @@ async function scanSinglePage(
         seoChecks: 0,
         privacyChecks: 0,
         mobileChecks: 0,
+        uxChecks: 0,
+        designChecks: 0,
+        humanAppealChecks: 0,
+        businessChecks: 0,
+        revenueChecks: 0,
+        growthChecks: 0,
       };
     }
   }
@@ -586,6 +641,132 @@ async function scanSinglePage(
     }
   }
 
+  // Run UX/UI checks
+  if (categories.includes("ux")) {
+    try {
+      const uxResult = await runUxUiChecks(page, pageUrl);
+      violations.push(...uxResult.violations);
+      uxChecks += uxResult.totalChecks;
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
+      console.error(`[scanner] UX/UI check failed on ${pageUrl}:`, error);
+      violations.push({
+        id: `ux-error-${Math.random().toString(36).slice(2, 8)}`,
+        category: "ux",
+        severity: "high",
+        rule: "check-failed",
+        message: `UX/UI check failed: ${msg}`,
+        url: pageUrl,
+      });
+      uxChecks += 10;
+    }
+  }
+
+  // Run design quality checks
+  if (categories.includes("design")) {
+    try {
+      const designResult = await runDesignChecks(page, pageUrl);
+      violations.push(...designResult.violations);
+      designChecks += designResult.totalChecks;
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
+      console.error(`[scanner] Design check failed on ${pageUrl}:`, error);
+      violations.push({
+        id: `design-error-${Math.random().toString(36).slice(2, 8)}`,
+        category: "design",
+        severity: "high",
+        rule: "check-failed",
+        message: `Design check failed: ${msg}`,
+        url: pageUrl,
+      });
+      designChecks += 8;
+    }
+  }
+
+  // Run human appeal checks
+  if (categories.includes("human_appeal")) {
+    try {
+      const appealResult = await runHumanAppealChecks(page, pageUrl);
+      violations.push(...appealResult.violations);
+      humanAppealChecks += appealResult.totalChecks;
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
+      console.error(`[scanner] Human appeal check failed on ${pageUrl}:`, error);
+      violations.push({
+        id: `appeal-error-${Math.random().toString(36).slice(2, 8)}`,
+        category: "human_appeal",
+        severity: "high",
+        rule: "check-failed",
+        message: `Human appeal check failed: ${msg}`,
+        url: pageUrl,
+      });
+      humanAppealChecks += 8;
+    }
+  }
+
+  // Run business viability checks
+  if (categories.includes("business")) {
+    try {
+      const bizResult = await runBusinessChecks(page, pageUrl);
+      violations.push(...bizResult.violations);
+      businessChecks += bizResult.totalChecks;
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
+      console.error(`[scanner] Business check failed on ${pageUrl}:`, error);
+      violations.push({
+        id: `biz-error-${Math.random().toString(36).slice(2, 8)}`,
+        category: "business",
+        severity: "high",
+        rule: "check-failed",
+        message: `Business check failed: ${msg}`,
+        url: pageUrl,
+      });
+      businessChecks += 7;
+    }
+  }
+
+  // Run revenue potential checks
+  if (categories.includes("revenue")) {
+    try {
+      const revResult = await runRevenueChecks(page, pageUrl);
+      violations.push(...revResult.violations);
+      revenueChecks += revResult.totalChecks;
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
+      console.error(`[scanner] Revenue check failed on ${pageUrl}:`, error);
+      violations.push({
+        id: `rev-error-${Math.random().toString(36).slice(2, 8)}`,
+        category: "revenue",
+        severity: "high",
+        rule: "check-failed",
+        message: `Revenue check failed: ${msg}`,
+        url: pageUrl,
+      });
+      revenueChecks += 7;
+    }
+  }
+
+  // Run growth potential checks
+  if (categories.includes("growth")) {
+    try {
+      const growthResult = await runGrowthChecks(page, pageUrl);
+      violations.push(...growthResult.violations);
+      growthChecks += growthResult.totalChecks;
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
+      console.error(`[scanner] Growth check failed on ${pageUrl}:`, error);
+      violations.push({
+        id: `growth-error-${Math.random().toString(36).slice(2, 8)}`,
+        category: "growth",
+        severity: "high",
+        rule: "check-failed",
+        message: `Growth check failed: ${msg}`,
+        url: pageUrl,
+      });
+      growthChecks += 8;
+    }
+  }
+
   return {
     violations,
     metrics,
@@ -596,6 +777,12 @@ async function scanSinglePage(
     seoChecks,
     privacyChecks,
     mobileChecks,
+    uxChecks,
+    designChecks,
+    humanAppealChecks,
+    businessChecks,
+    revenueChecks,
+    growthChecks,
   };
 }
 

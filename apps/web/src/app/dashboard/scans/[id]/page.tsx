@@ -14,18 +14,86 @@ import { apiFetch, API_BASE } from "@/hooks/useApi";
 /* ------------------------------------------------------------------ */
 type Severity = "critical" | "high" | "serious" | "medium" | "moderate" | "low" | "minor" | "info";
 
+type ShipReadiness = "SHIP IT" | "ALMOST READY" | "NEEDS WORK" | "DO NOT SHIP";
+
+interface CategoryScore {
+  category: string;
+  score: number;
+  violations: number;
+  passed?: number;
+}
+
+interface PillarScore {
+  pillar: string;
+  score: number;
+  categories: CategoryScore[];
+}
+
 interface Violation {
   id: string;
   title: string;
   description: string;
   severity: Severity;
-  category: "accessibility" | "security" | "performance";
+  category: string;
   element?: string;
   selector?: string;
   fix?: string;
   fixCode?: string;
   autoFixable?: boolean;
 }
+
+function getShipReadinessColor(readiness: ShipReadiness): string {
+  switch (readiness) {
+    case "SHIP IT": return "#22C55E";
+    case "ALMOST READY": return "#EAB308";
+    case "NEEDS WORK": return "#F97316";
+    case "DO NOT SHIP": return "#EF4444";
+  }
+}
+
+function getShipReadinessBg(readiness: ShipReadiness): string {
+  switch (readiness) {
+    case "SHIP IT": return "bg-green-500/10 border-green-500/30";
+    case "ALMOST READY": return "bg-yellow-500/10 border-yellow-500/30";
+    case "NEEDS WORK": return "bg-orange-500/10 border-orange-500/30";
+    case "DO NOT SHIP": return "bg-red-500/10 border-red-500/30";
+  }
+}
+
+function computeShipReadiness(score: number): ShipReadiness {
+  if (score >= 90) return "SHIP IT";
+  if (score >= 70) return "ALMOST READY";
+  if (score >= 50) return "NEEDS WORK";
+  return "DO NOT SHIP";
+}
+
+function getScoreStrokeColorInline(score: number): string {
+  if (score >= 90) return "#16A34A";
+  if (score >= 70) return "#22C55E";
+  if (score >= 50) return "#EAB308";
+  return "#EF4444";
+}
+
+const PILLAR_CONFIG: Record<string, { icon: string; label: string; categories: string[] }> = {
+  technical: { icon: "\uD83D\uDCCA", label: "Technical", categories: ["accessibility", "security", "performance", "seo", "privacy", "mobile"] },
+  product: { icon: "\uD83C\uDFA8", label: "Product", categories: ["ux", "design", "human_appeal"] },
+  business: { icon: "\uD83D\uDCB0", label: "Business", categories: ["business", "revenue", "growth"] },
+};
+
+const ALL_CATEGORY_LABELS: Record<string, string> = {
+  accessibility: "Accessibility",
+  security: "Security",
+  performance: "Performance",
+  seo: "SEO",
+  privacy: "Privacy",
+  mobile: "Mobile",
+  ux: "UX/UI",
+  design: "Design",
+  human_appeal: "Human Appeal",
+  business: "Business Viability",
+  revenue: "Revenue Potential",
+  growth: "Growth Potential",
+};
 
 const severityOrder: Record<string, number> = { critical: 0, high: 0, serious: 1, medium: 1, moderate: 2, low: 2, minor: 3, info: 3 };
 
@@ -172,6 +240,9 @@ export default function ScanDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [scanData, setScanData] = useState<{
     id: string; url: string; status: string; score: number;
+    shipReadiness: ShipReadiness;
+    pillars: PillarScore[];
+    categories: CategoryScore[];
     accessibility: number; security: number; performance: number;
     createdAt: string; completedAt: string; duration: string;
     checksRun: number; progress: number;
@@ -180,7 +251,7 @@ export default function ScanDetailPage() {
   const [rescanning, setRescanning] = useState(false);
   const [downloading, setDownloading] = useState(false);
 
-  const [activeTab, setActiveTab] = useState<"all" | "accessibility" | "security" | "performance">("all");
+  const [activeTab, setActiveTab] = useState<string>("all");
   const [severityFilter, setSeverityFilter] = useState<Severity | "all">("all");
 
   const fetchScan = useCallback(async () => {
@@ -193,16 +264,42 @@ export default function ScanDetailPage() {
       const data = res?.data;
       if (!data) throw new Error("No scan data returned");
 
-      const cats: any[] = data.categories ?? data.results?.categories ?? [];
-      const a11y = cats.find((c: any) => c.category === "accessibility");
-      const sec = cats.find((c: any) => c.category === "security");
-      const perf = cats.find((c: any) => c.category === "performance");
+      const cats: CategoryScore[] = (data.categories ?? data.results?.categories ?? []).map((c: any) => ({
+        category: c.category,
+        score: c.score ?? 0,
+        violations: c.violations ?? 0,
+        passed: c.passed ?? 0,
+      }));
+      const a11y = cats.find((c) => c.category === "accessibility");
+      const sec = cats.find((c) => c.category === "security");
+      const perf = cats.find((c) => c.category === "performance");
+
+      const overallScore = data.overallScore ?? 0;
+      const apiPillars: PillarScore[] = data.pillars ?? [];
+
+      // Build pillars from categories if API doesn't provide them
+      const pillars: PillarScore[] = apiPillars.length > 0
+        ? apiPillars
+        : (() => {
+            const built: PillarScore[] = [];
+            for (const [key, conf] of Object.entries(PILLAR_CONFIG)) {
+              const pillarCats = cats.filter((c) => conf.categories.includes(c.category));
+              if (pillarCats.length > 0) {
+                const avg = Math.round(pillarCats.reduce((s, c) => s + c.score, 0) / pillarCats.length);
+                built.push({ pillar: key, score: avg, categories: pillarCats });
+              }
+            }
+            return built;
+          })();
 
       setScanData({
         id: data.scanId,
         url: data.url,
         status: data.status,
-        score: data.overallScore ?? 0,
+        score: overallScore,
+        shipReadiness: data.shipReadiness ?? computeShipReadiness(overallScore),
+        pillars,
+        categories: cats,
         accessibility: a11y?.score ?? 0,
         security: sec?.score ?? 0,
         performance: perf?.score ?? 0,
@@ -307,27 +404,30 @@ export default function ScanDetailPage() {
 
   const { severityCounts, categoryCounts, autoFixable } = useMemo(() => {
     const severity: Record<string, number> = { critical: 0, high: 0, medium: 0, low: 0, info: 0 };
-    const category = { accessibility: 0, security: 0, performance: 0 };
+    const category: Record<string, number> = {};
     const fixable: Violation[] = [];
 
     for (const v of violations) {
       if (severity[v.severity] !== undefined) severity[v.severity]++;
-      if (category[v.category as keyof typeof category] !== undefined) category[v.category as keyof typeof category]++;
+      category[v.category] = (category[v.category] ?? 0) + 1;
       if (v.autoFixable) fixable.push(v);
     }
 
     return { severityCounts: severity, categoryCounts: category, autoFixable: fixable };
   }, [violations]);
 
-  const tabs = useMemo(
-    () => [
-      { key: "all", label: "All", count: violations.length },
-      { key: "accessibility", label: "Accessibility", count: categoryCounts.accessibility },
-      { key: "security", label: "Security", count: categoryCounts.security },
-      { key: "performance", label: "Performance", count: categoryCounts.performance },
-    ],
-    [violations.length, categoryCounts]
-  );
+  const tabs = useMemo(() => {
+    const allTab = { key: "all", label: "All", count: violations.length };
+    // Build tabs from categories that have violations
+    const catTabs = Object.entries(categoryCounts)
+      .filter(([, count]) => count > 0)
+      .map(([cat, count]) => ({
+        key: cat,
+        label: ALL_CATEGORY_LABELS[cat] || cat,
+        count,
+      }));
+    return [allTab, ...catTabs];
+  }, [violations.length, categoryCounts]);
 
   const filtered = useMemo(
     () =>
@@ -396,24 +496,72 @@ export default function ScanDetailPage() {
         </div>
       </div>
 
-      {/* Score overview */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+      {/* Ship Readiness + Overall Score */}
+      <div className="flex flex-col sm:flex-row items-center gap-6">
         <div className="rounded-xl border border-neutral-800 bg-neutral-900 p-6 flex flex-col items-center justify-center">
           <p className="text-xs text-neutral-500 uppercase tracking-wider mb-3">Overall Score</p>
           <ScoreCircle score={scanData.score} size="lg" showLabel />
         </div>
-        {[
-          { label: "Accessibility", score: scanData.accessibility, count: categoryCounts.accessibility },
-          { label: "Security", score: scanData.security, count: categoryCounts.security },
-          { label: "Performance", score: scanData.performance, count: categoryCounts.performance },
-        ].map((sub) => (
-          <div key={sub.label} className="rounded-xl border border-neutral-800 bg-neutral-900 p-6 flex flex-col items-center justify-center">
-            <p className="text-xs text-neutral-500 uppercase tracking-wider mb-3">{sub.label}</p>
-            <ScoreCircle score={sub.score} size="md" showLabel />
-            <p className="text-xs text-neutral-500 mt-3">{sub.count} violation{sub.count !== 1 ? "s" : ""}</p>
-          </div>
-        ))}
+        <div className={`flex-1 rounded-xl border p-6 flex flex-col items-center justify-center ${getShipReadinessBg(scanData.shipReadiness)}`}>
+          <p className="text-xs text-neutral-500 uppercase tracking-wider mb-3">Ship Readiness</p>
+          <span className="text-2xl mb-1">
+            {scanData.shipReadiness === "SHIP IT" ? "\uD83D\uDE80" : scanData.shipReadiness === "ALMOST READY" ? "\u26A0\uFE0F" : scanData.shipReadiness === "NEEDS WORK" ? "\uD83D\uDEE0\uFE0F" : "\uD83D\uDED1"}
+          </span>
+          <span className="text-xl font-bold tracking-wide" style={{ color: getShipReadinessColor(scanData.shipReadiness) }}>
+            {scanData.shipReadiness}
+          </span>
+        </div>
       </div>
+
+      {/* Pillar Cards */}
+      {scanData.pillars.length > 0 ? (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {scanData.pillars.map((p) => {
+            const config = PILLAR_CONFIG[p.pillar];
+            const pillarColor = getScoreStrokeColorInline(p.score);
+            return (
+              <div key={p.pillar} className="rounded-xl border border-neutral-800 bg-neutral-900 p-5">
+                <div className="flex items-center gap-2 mb-3">
+                  <span className="text-xl">{config?.icon || "\uD83D\uDCCA"}</span>
+                  <span className="text-sm font-semibold text-white">{config?.label || p.pillar}</span>
+                </div>
+                <div className="text-3xl font-bold tabular-nums mb-4" style={{ color: pillarColor }}>{p.score}</div>
+                <div className="space-y-2">
+                  {p.categories.map((cat) => {
+                    const catColor = getScoreStrokeColorInline(cat.score);
+                    return (
+                      <div key={cat.category} className="flex items-center justify-between">
+                        <span className="text-xs text-neutral-400">{ALL_CATEGORY_LABELS[cat.category] || cat.category}</span>
+                        <div className="flex items-center gap-2">
+                          <div className="w-16 h-1.5 rounded-full bg-neutral-800 overflow-hidden">
+                            <div className="h-full rounded-full transition-all duration-700" style={{ width: `${cat.score}%`, backgroundColor: catColor }} />
+                          </div>
+                          <span className="text-xs font-medium tabular-nums w-6 text-right" style={{ color: catColor }}>{cat.score}</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        /* Legacy 3-category view */
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {[
+            { label: "Accessibility", score: scanData.accessibility, count: categoryCounts["accessibility"] ?? 0 },
+            { label: "Security", score: scanData.security, count: categoryCounts["security"] ?? 0 },
+            { label: "Performance", score: scanData.performance, count: categoryCounts["performance"] ?? 0 },
+          ].map((sub) => (
+            <div key={sub.label} className="rounded-xl border border-neutral-800 bg-neutral-900 p-6 flex flex-col items-center justify-center">
+              <p className="text-xs text-neutral-500 uppercase tracking-wider mb-3">{sub.label}</p>
+              <ScoreCircle score={sub.score} size="md" showLabel />
+              <p className="text-xs text-neutral-500 mt-3">{sub.count} violation{sub.count !== 1 ? "s" : ""}</p>
+            </div>
+          ))}
+        </div>
+      )}
 
       {violations.length === 0 && scanData.status === "completed" ? (
         <div className="rounded-xl border border-green-500/20 bg-green-500/5 p-12 text-center">
@@ -448,12 +596,12 @@ export default function ScanDetailPage() {
           {/* Main content */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div className="lg:col-span-2 space-y-4">
-              <div className="flex gap-1 p-1 rounded-lg bg-neutral-900 border border-neutral-800">
+              <div className="flex gap-1 p-1 rounded-lg bg-neutral-900 border border-neutral-800 overflow-x-auto">
                 {tabs.map((tab) => (
                   <button
                     key={tab.key}
-                    onClick={() => setActiveTab(tab.key as typeof activeTab)}
-                    className={`flex-1 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                    onClick={() => setActiveTab(tab.key)}
+                    className={`flex-shrink-0 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
                       activeTab === tab.key ? "bg-neutral-700 text-white" : "text-neutral-500 hover:text-white"
                     }`}
                   >

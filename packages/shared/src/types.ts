@@ -13,12 +13,21 @@ export const Severity = {
 export type Severity = (typeof Severity)[keyof typeof Severity];
 
 export const CheckCategory = {
+  // Technical (Pillar 1)
   ACCESSIBILITY: "accessibility",
   SECURITY: "security",
   PERFORMANCE: "performance",
   SEO: "seo",
   PRIVACY: "privacy",
   MOBILE: "mobile",
+  // Product (Pillar 2)
+  UX: "ux",
+  DESIGN: "design",
+  HUMAN_APPEAL: "human_appeal",
+  // Business (Pillar 3)
+  BUSINESS: "business",
+  REVENUE: "revenue",
+  GROWTH: "growth",
 } as const;
 
 export type CheckCategory = (typeof CheckCategory)[keyof typeof CheckCategory];
@@ -45,6 +54,46 @@ export interface FixSuggestion {
   confidence: number;
   source: "rule-based" | "llm";
 }
+
+// ── Assessments (qualitative analysis) ───────────────────────────────
+
+export interface Assessment {
+  id: string;
+  category: CheckCategory;
+  type: "strength" | "weakness" | "opportunity" | "observation";
+  title: string;
+  description: string;
+  score?: number;
+  confidence: number;
+  source: "automated" | "ai-vision" | "ai-llm";
+}
+
+// ── Pillar Scores ────────────────────────────────────────────────────
+
+export const Pillar = {
+  TECHNICAL: "technical",
+  PRODUCT: "product",
+  BUSINESS: "business",
+} as const;
+
+export type Pillar = (typeof Pillar)[keyof typeof Pillar];
+
+export interface PillarScore {
+  pillar: Pillar;
+  score: number;
+  categories: CategoryScore[];
+}
+
+// ── Ship Readiness ───────────────────────────────────────────────────
+
+export const ShipReadiness = {
+  SHIP_IT: "SHIP IT",
+  ALMOST_READY: "ALMOST READY",
+  NEEDS_WORK: "NEEDS WORK",
+  DO_NOT_SHIP: "DO NOT SHIP",
+} as const;
+
+export type ShipReadiness = (typeof ShipReadiness)[keyof typeof ShipReadiness];
 
 // ── Scan Types ───────────────────────────────────────────────────────
 
@@ -80,8 +129,11 @@ export interface ScanResult {
   url: string;
   status: ScanStatus;
   overallScore: number;
+  shipReadiness?: ShipReadiness;
+  pillars?: PillarScore[];
   categories: CategoryScore[];
   violations: Violation[];
+  assessments?: Assessment[];
   suggestions: FixSuggestion[];
   pagesScanned: number;
   blockedPages?: number;
@@ -145,7 +197,10 @@ export const ScanRequestSchema = z.object({
     .object({
       maxPages: z.number().min(1).max(100).optional(),
       categories: z
-        .array(z.enum(["accessibility", "security", "performance", "seo", "privacy", "mobile"]))
+        .array(z.enum([
+          "accessibility", "security", "performance", "seo", "privacy", "mobile",
+          "ux", "design", "human_appeal", "business", "revenue", "growth",
+        ]))
         .optional(),
       waitForTimeout: z.number().min(0).max(30000).optional(),
       includeFixSuggestions: z.boolean().optional(),

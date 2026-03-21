@@ -28,12 +28,22 @@ interface CategoryScore {
   passed?: number;
 }
 
+interface PillarScore {
+  pillar: string;
+  score: number;
+  categories: CategoryScore[];
+}
+
+type ShipReadiness = "SHIP IT" | "ALMOST READY" | "NEEDS WORK" | "DO NOT SHIP";
+
 interface ScanData {
   id: string;
   scanId?: string;
   url: string;
   status: string;
   overallScore: number;
+  shipReadiness?: ShipReadiness;
+  pillars?: PillarScore[];
   categories: CategoryScore[];
   violations: Violation[];
   suggestions?: { violationId: string; description: string; codeSnippet?: string }[];
@@ -78,6 +88,52 @@ function getSeverityDot(severity: string): string {
     default: return "bg-neutral-500";
   }
 }
+
+function getShipReadinessColor(readiness: ShipReadiness): string {
+  switch (readiness) {
+    case "SHIP IT": return "#22C55E";
+    case "ALMOST READY": return "#EAB308";
+    case "NEEDS WORK": return "#F97316";
+    case "DO NOT SHIP": return "#EF4444";
+  }
+}
+
+function getShipReadinessBg(readiness: ShipReadiness): string {
+  switch (readiness) {
+    case "SHIP IT": return "bg-green-500/10 border-green-500/30";
+    case "ALMOST READY": return "bg-yellow-500/10 border-yellow-500/30";
+    case "NEEDS WORK": return "bg-orange-500/10 border-orange-500/30";
+    case "DO NOT SHIP": return "bg-red-500/10 border-red-500/30";
+  }
+}
+
+function computeShipReadiness(score: number): ShipReadiness {
+  if (score >= 90) return "SHIP IT";
+  if (score >= 70) return "ALMOST READY";
+  if (score >= 50) return "NEEDS WORK";
+  return "DO NOT SHIP";
+}
+
+const PILLAR_CONFIG: Record<string, { icon: string; label: string; categories: string[] }> = {
+  technical: { icon: "\uD83D\uDCCA", label: "Technical", categories: ["accessibility", "security", "performance", "seo", "privacy", "mobile"] },
+  product: { icon: "\uD83C\uDFA8", label: "Product", categories: ["ux", "design", "human_appeal"] },
+  business: { icon: "\uD83D\uDCB0", label: "Business", categories: ["business", "revenue", "growth"] },
+};
+
+const ALL_CATEGORY_LABELS: Record<string, string> = {
+  accessibility: "Accessibility",
+  security: "Security",
+  performance: "Performance",
+  seo: "SEO",
+  privacy: "Privacy",
+  mobile: "Mobile",
+  ux: "UX/UI",
+  design: "Design",
+  human_appeal: "Human Appeal",
+  business: "Business Viability",
+  revenue: "Revenue Potential",
+  growth: "Growth Potential",
+};
 
 /* ------------------------------------------------------------------ */
 /* Violation translator                                                */
@@ -181,10 +237,58 @@ function ScoreRing({
 }
 
 /* ------------------------------------------------------------------ */
-/* Category bar — single horizontal row of all categories               */
+/* Ship Readiness Badge                                                */
+/* ------------------------------------------------------------------ */
+function ShipReadinessBadge({ readiness }: { readiness: ShipReadiness }) {
+  const color = getShipReadinessColor(readiness);
+  const bgClass = getShipReadinessBg(readiness);
+  return (
+    <div className={`inline-flex items-center gap-2.5 px-5 py-2.5 rounded-xl border ${bgClass}`}>
+      <span className="text-lg">
+        {readiness === "SHIP IT" ? "\uD83D\uDE80" : readiness === "ALMOST READY" ? "\u26A0\uFE0F" : readiness === "NEEDS WORK" ? "\uD83D\uDEE0\uFE0F" : "\uD83D\uDED1"}
+      </span>
+      <span className="text-lg font-bold tracking-wide" style={{ color }}>{readiness}</span>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Pillar Card                                                         */
+/* ------------------------------------------------------------------ */
+function PillarCard({ pillar, score, categories, icon }: { pillar: string; score: number; categories: CategoryScore[]; icon: string }) {
+  const color = getScoreColor(score);
+  return (
+    <div className="rounded-xl border border-neutral-800 bg-neutral-900 p-5">
+      <div className="flex items-center gap-2 mb-3">
+        <span className="text-xl">{icon}</span>
+        <span className="text-sm font-semibold text-white">{pillar}</span>
+      </div>
+      <div className="text-3xl font-bold tabular-nums mb-4" style={{ color }}>{score}</div>
+      <div className="space-y-2">
+        {categories.map((cat) => {
+          const catColor = getScoreColor(cat.score);
+          return (
+            <div key={cat.category} className="flex items-center justify-between">
+              <span className="text-xs text-neutral-400">{ALL_CATEGORY_LABELS[cat.category] || cat.category}</span>
+              <div className="flex items-center gap-2">
+                <div className="w-16 h-1.5 rounded-full bg-neutral-800 overflow-hidden">
+                  <div className="h-full rounded-full transition-all duration-700" style={{ width: `${cat.score}%`, backgroundColor: catColor }} />
+                </div>
+                <span className="text-xs font-medium tabular-nums w-6 text-right" style={{ color: catColor }}>{cat.score}</span>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Category bar — legacy fallback for old 6-category scans              */
 /* ------------------------------------------------------------------ */
 function CategoryBar({ categories }: { categories: CategoryScore[] }) {
-  const labels: Record<string, string> = {
+  const shortLabels: Record<string, string> = {
     accessibility: "A11y",
     security: "Security",
     performance: "Perf",
@@ -202,7 +306,7 @@ function CategoryBar({ categories }: { categories: CategoryScore[] }) {
             key={cat.category}
             className="flex flex-col items-center gap-1 px-2 py-2.5 rounded-lg border border-neutral-800 bg-neutral-900/50"
           >
-            <span className="text-[10px] text-neutral-500 uppercase tracking-wider">{labels[cat.category] || cat.category}</span>
+            <span className="text-[10px] text-neutral-500 uppercase tracking-wider">{shortLabels[cat.category] || cat.category}</span>
             <span className="text-lg font-bold tabular-nums leading-none" style={{ color }}>
               {cat.score}
             </span>
@@ -421,14 +525,7 @@ function ViolationGroup({
 }) {
   const [open, setOpen] = useState(defaultOpen);
   const [showAll, setShowAll] = useState(false);
-  const labels: Record<string, string> = {
-    accessibility: "Accessibility",
-    security: "Security",
-    performance: "Performance",
-    seo: "SEO",
-    privacy: "Privacy",
-    mobile: "Mobile",
-  };
+  const labels = ALL_CATEGORY_LABELS;
 
   const grouped = groupByRule(violations);
   const critical = grouped.filter((v) => v.severity === "critical").reduce((s, v) => s + v.count, 0);
@@ -591,6 +688,29 @@ export default function ResultsPage() {
   const categories = scan.categories ?? [];
   const scanDate = new Date(scan.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 
+  // New 12-category / 3-pillar system (backwards compatible)
+  const shipReadiness: ShipReadiness = scan.shipReadiness ?? computeShipReadiness(scan.overallScore);
+  const hasPillars = !!(scan.pillars && scan.pillars.length > 0);
+
+  // Build pillar data: use API pillars if available, otherwise derive from categories
+  const pillarData: PillarScore[] = hasPillars
+    ? scan.pillars!
+    : (() => {
+        // Only build synthetic pillars if we have more than the legacy 3 categories
+        const pillarKeys = Object.keys(PILLAR_CONFIG);
+        const built: PillarScore[] = [];
+        for (const key of pillarKeys) {
+          const conf = PILLAR_CONFIG[key];
+          const pillarCats = categories.filter((c) => conf.categories.includes(c.category));
+          if (pillarCats.length > 0) {
+            const avg = Math.round(pillarCats.reduce((s, c) => s + c.score, 0) / pillarCats.length);
+            built.push({ pillar: key, score: avg, categories: pillarCats });
+          }
+        }
+        // Only return pillar view if we have categories beyond the old 3
+        return built.length > 1 ? built : [];
+      })();
+
   // Group violations by category
   const grouped: Record<string, TranslatedViolation[]> = {};
   violations.forEach((v) => {
@@ -608,8 +728,6 @@ export default function ResultsPage() {
   const linkedInUrl = `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(`https://preship.dev/results/${id}`)}`;
   const badgeMarkdown = `[![PreShip Score](https://preship.dev/api/og/scan/${id})](https://preship.dev/results/${id})`;
 
-  const scoreColor = getScoreColor(scan.overallScore);
-
   return (
     <div className="min-h-screen bg-[#0A0A0A]">
       <Navbar />
@@ -619,7 +737,7 @@ export default function ResultsPage() {
       <main className="pt-24 pb-20 px-4">
         <div className="max-w-4xl mx-auto">
 
-          {/* ========== HERO: Score + Domain + Categories ========== */}
+          {/* ========== HERO: Score + Domain + Ship Readiness ========== */}
           <div className="rounded-2xl border border-neutral-800 bg-neutral-900 p-6 md:p-8 mb-6">
             {/* Top: Score + Domain info side by side on desktop */}
             <div className="flex flex-col lg:flex-row items-center lg:items-start gap-6 lg:gap-10 mb-6">
@@ -635,24 +753,39 @@ export default function ResultsPage() {
                   Scanned {scanDate} &middot; {violations.length} issue{violations.length !== 1 ? "s" : ""} found
                 </p>
 
+                {/* Ship Readiness Badge */}
+                <div className="mt-3">
+                  <ShipReadinessBadge readiness={shipReadiness} />
+                </div>
+
                 {/* Improvement banner inline */}
                 {scan.previousScore !== undefined && scan.previousScore !== null && scan.overallScore > scan.previousScore && (
-                  <p className="text-sm text-orange-400 font-medium mb-3">
+                  <p className="text-sm text-orange-400 font-medium mt-3">
                     Improved from {scan.previousScore} to {scan.overallScore}
-                  </p>
-                )}
-
-                {/* Celebration inline for 80+ */}
-                {scan.overallScore >= 80 && (
-                  <p className="text-sm font-medium mb-3" style={{ color: scoreColor }}>
-                    Your app is in great shape. Keep it up.
                   </p>
                 )}
               </div>
             </div>
 
-            {/* Category scores — full width grid below */}
-            <CategoryBar categories={categories} />
+            {/* Pillar cards or legacy category bar */}
+            {hasPillars ? (
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {pillarData.map((p) => {
+                  const config = PILLAR_CONFIG[p.pillar];
+                  return (
+                    <PillarCard
+                      key={p.pillar}
+                      pillar={config?.label || p.pillar}
+                      score={p.score}
+                      categories={p.categories}
+                      icon={config?.icon || "\uD83D\uDCCA"}
+                    />
+                  );
+                })}
+              </div>
+            ) : (
+              <CategoryBar categories={categories} />
+            )}
           </div>
 
           {/* ========== FIX WITH AI — most valuable section ========== */}
@@ -688,7 +821,7 @@ export default function ResultsPage() {
             </div>
           )}
 
-          {/* ========== ISSUES — collapsible by category ========== */}
+          {/* ========== ISSUES — organized by pillar then category ========== */}
           {violations.length > 0 && (
             <div className="mb-6">
               <div className="flex items-center justify-between mb-3">
@@ -701,7 +834,7 @@ export default function ResultsPage() {
                       const t = translateViolation(v);
                       return `[${v.category.toUpperCase()}] [${v.severity}] ${t.title}\n  ${t.description}${v.selector ? `\n  Element: ${v.selector}` : ""}`;
                     });
-                    const text = `PreShip Scan Report — ${domain}\nScore: ${scan.overallScore}/100\n${violations.length} issues found\n${"=".repeat(50)}\n\n${lines.join("\n\n")}`;
+                    const text = `PreShip Scan Report — ${domain}\nScore: ${scan.overallScore}/100\nVerdict: ${shipReadiness}\n${violations.length} issues found\n${"=".repeat(50)}\n\n${lines.join("\n\n")}`;
                     const blob = new Blob([text], { type: "text/plain" });
                     const url = URL.createObjectURL(blob);
                     const a = document.createElement("a");
@@ -719,17 +852,71 @@ export default function ResultsPage() {
                   Download all {violations.length}
                 </button>
               </div>
-              <div className="space-y-2">
-                {sortedCategories.map(([category, items], idx) => (
-                  <ViolationGroup
-                    key={category}
-                    category={category}
-                    violations={items}
-                    totalRaw={items.length}
-                    defaultOpen={idx === 0}
-                  />
-                ))}
-              </div>
+
+              {/* Organize by pillar groups if we have pillar data */}
+              {pillarData.length > 0 ? (
+                <div className="space-y-6">
+                  {pillarData.map((p) => {
+                    const config = PILLAR_CONFIG[p.pillar];
+                    const pillarCategories = config?.categories || [];
+                    const pillarViolations = sortedCategories.filter(([cat]) => pillarCategories.includes(cat));
+                    if (pillarViolations.length === 0) return null;
+                    return (
+                      <div key={p.pillar}>
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className="text-base">{config?.icon}</span>
+                          <h3 className="text-xs font-semibold text-neutral-500 uppercase tracking-wider">{config?.label || p.pillar}</h3>
+                        </div>
+                        <div className="space-y-2">
+                          {pillarViolations.map(([category, items], idx) => (
+                            <ViolationGroup
+                              key={category}
+                              category={category}
+                              violations={items}
+                              totalRaw={items.length}
+                              defaultOpen={idx === 0}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
+                  {/* Show any violations in categories not in any pillar */}
+                  {(() => {
+                    const allPillarCats = Object.values(PILLAR_CONFIG).flatMap((c) => c.categories);
+                    const uncategorized = sortedCategories.filter(([cat]) => !allPillarCats.includes(cat));
+                    if (uncategorized.length === 0) return null;
+                    return (
+                      <div>
+                        <h3 className="text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-2">Other</h3>
+                        <div className="space-y-2">
+                          {uncategorized.map(([category, items], idx) => (
+                            <ViolationGroup
+                              key={category}
+                              category={category}
+                              violations={items}
+                              totalRaw={items.length}
+                              defaultOpen={idx === 0}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {sortedCategories.map(([category, items], idx) => (
+                    <ViolationGroup
+                      key={category}
+                      category={category}
+                      violations={items}
+                      totalRaw={items.length}
+                      defaultOpen={idx === 0}
+                    />
+                  ))}
+                </div>
+              )}
             </div>
           )}
 

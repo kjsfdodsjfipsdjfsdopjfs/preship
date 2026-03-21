@@ -1,5 +1,5 @@
-import { SEVERITY_WEIGHTS, SCORE_THRESHOLDS, SCORE_LABELS } from "./constants";
-import type { Violation, CategoryScore, CheckCategory } from "./types";
+import { SEVERITY_WEIGHTS, SCORE_THRESHOLDS, SCORE_LABELS, SHIP_READINESS_THRESHOLDS, PILLAR_CATEGORIES, PILLAR_WEIGHTS } from "./constants";
+import type { Violation, CategoryScore, CheckCategory, PillarScore, Pillar, ShipReadiness } from "./types";
 
 /**
  * Calculate a 0-100 score for a set of violations.
@@ -43,6 +43,12 @@ export function calculateCategoryScores(
     "seo",
     "privacy",
     "mobile",
+    "ux",
+    "design",
+    "human_appeal",
+    "business",
+    "revenue",
+    "growth",
   ];
 
   return categories.map((category) => {
@@ -93,4 +99,56 @@ export function getScoreLabel(
  */
 export function getScoreDisplayText(score: number): string {
   return SCORE_LABELS[getScoreLabel(score)];
+}
+
+/**
+ * Calculate pillar scores (Technical, Product, Business) from category scores.
+ */
+export function calculatePillarScores(categories: CategoryScore[]): PillarScore[] {
+  const pillars: Pillar[] = ["technical", "product", "business"];
+
+  return pillars.map((pillar) => {
+    const pillarCats = PILLAR_CATEGORIES[pillar] ?? [];
+    const pillarCategoryScores = categories.filter((c) =>
+      pillarCats.includes(c.category)
+    );
+
+    const score =
+      pillarCategoryScores.length > 0
+        ? Math.round(
+            pillarCategoryScores.reduce((sum, c) => sum + c.score, 0) /
+              pillarCategoryScores.length
+          )
+        : 100;
+
+    return {
+      pillar,
+      score,
+      categories: pillarCategoryScores,
+    };
+  });
+}
+
+/**
+ * Calculate weighted overall score using pillar weights.
+ */
+export function calculateWeightedOverallScore(pillars: PillarScore[]): number {
+  if (pillars.length === 0) return 100;
+
+  const weightedSum = pillars.reduce((sum, p) => {
+    const weight = PILLAR_WEIGHTS[p.pillar] ?? 0;
+    return sum + p.score * weight;
+  }, 0);
+
+  return Math.round(weightedSum);
+}
+
+/**
+ * Get the Ship Readiness verdict based on the overall score.
+ */
+export function getShipReadiness(score: number): ShipReadiness {
+  if (score >= SHIP_READINESS_THRESHOLDS.SHIP_IT) return "SHIP IT";
+  if (score >= SHIP_READINESS_THRESHOLDS.ALMOST_READY) return "ALMOST READY";
+  if (score >= SHIP_READINESS_THRESHOLDS.NEEDS_WORK) return "NEEDS WORK";
+  return "DO NOT SHIP";
 }

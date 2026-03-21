@@ -1,5 +1,8 @@
 import {
   calculateCategoryScores,
+  calculatePillarScores,
+  calculateWeightedOverallScore,
+  getShipReadiness,
   type ScanResult,
   type Violation,
   type FixSuggestion,
@@ -82,12 +85,21 @@ const SEVERITY_ORDER: Record<Severity, number> = {
 
 /** Category weights for calculating the overall weighted score */
 const CATEGORY_WEIGHTS: Record<CheckCategory, number> = {
-  accessibility: 0.25,
-  security: 0.25,
-  performance: 0.15,
-  seo: 0.15,
-  privacy: 0.10,
-  mobile: 0.10,
+  // Technical pillar (40% total)
+  accessibility: 0.08,
+  security: 0.08,
+  performance: 0.07,
+  seo: 0.06,
+  privacy: 0.06,
+  mobile: 0.05,
+  // Product pillar (35% total)
+  ux: 0.13,
+  design: 0.12,
+  human_appeal: 0.10,
+  // Business pillar (25% total)
+  business: 0.09,
+  revenue: 0.08,
+  growth: 0.08,
 };
 
 /**
@@ -108,6 +120,12 @@ export function buildReport(input: ReportInput): ScanResult {
       seo: 10,
       privacy: 5,
       mobile: 6,
+      ux: 10,
+      design: 8,
+      human_appeal: 8,
+      business: 7,
+      revenue: 7,
+      growth: 8,
     };
 
   const categories = calculateCategoryScores(
@@ -118,12 +136,18 @@ export function buildReport(input: ReportInput): ScanResult {
   // Use weighted scoring instead of simple average
   const overallScore = calculateWeightedScore(categories);
 
+  // Calculate pillar scores and ship readiness
+  const pillars = calculatePillarScores(categories);
+  const shipReadiness = getShipReadiness(overallScore);
+
   return {
     id: input.id,
     projectId: input.projectId,
     url: input.url,
     status: "completed",
     overallScore,
+    shipReadiness,
+    pillars,
     categories,
     violations: input.violations,
     suggestions: input.suggestions,
@@ -233,6 +257,12 @@ function buildSummary(
     seo: 0,
     privacy: 0,
     mobile: 0,
+    ux: 0,
+    design: 0,
+    human_appeal: 0,
+    business: 0,
+    revenue: 0,
+    growth: 0,
   };
 
   for (const v of violations) {

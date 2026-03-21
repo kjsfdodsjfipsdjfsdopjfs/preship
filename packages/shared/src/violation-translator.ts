@@ -330,6 +330,36 @@ function getGenericTranslation(
       impact: "Mobile users",
       legalRisk: false,
     },
+    ux: {
+      title: "UX/UI issue detected",
+      impact: "User experience and usability",
+      legalRisk: false,
+    },
+    design: {
+      title: "Design quality issue",
+      impact: "Visual consistency and professionalism",
+      legalRisk: false,
+    },
+    human_appeal: {
+      title: "Human appeal issue",
+      impact: "First impressions and trust",
+      legalRisk: false,
+    },
+    business: {
+      title: "Business viability issue",
+      impact: "Business readiness and credibility",
+      legalRisk: false,
+    },
+    revenue: {
+      title: "Revenue potential issue",
+      impact: "Monetization and conversion",
+      legalRisk: false,
+    },
+    growth: {
+      title: "Growth potential issue",
+      impact: "Organic growth and virality",
+      legalRisk: false,
+    },
   };
 
   const info = categoryLabels[category] || {
