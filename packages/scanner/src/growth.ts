@@ -36,7 +36,6 @@ export async function runGrowthChecks(
   // 1. Check for share buttons
   try {
     const hasShareButtons = await page.evaluate(() => {
-      const body = document.body?.innerHTML?.toLowerCase() ?? "";
       // Look for share-related elements
       const shareSelectors = [
         '[class*="share"]',

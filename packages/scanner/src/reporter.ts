@@ -1,7 +1,6 @@
 import {
   calculateCategoryScores,
   calculatePillarScores,
-  calculateWeightedOverallScore,
   getShipReadiness,
   type ScanResult,
   type Violation,
