@@ -115,9 +115,9 @@ function computeShipReadiness(score: number): ShipReadiness {
 }
 
 const PILLAR_CONFIG: Record<string, { icon: string; label: string; categories: string[] }> = {
-  technical: { icon: "\uD83D\uDCCA", label: "Technical", categories: ["accessibility", "security", "performance", "seo", "privacy", "mobile"] },
-  product: { icon: "\uD83C\uDFA8", label: "Product", categories: ["ux", "design", "human_appeal"] },
-  business: { icon: "\uD83D\uDCB0", label: "Business", categories: ["business", "revenue", "growth"] },
+  technical: { icon: "\uD83D\uDCCA", label: "Technical Reality", categories: ["accessibility", "security", "performance", "seo", "privacy", "mobile"] },
+  product: { icon: "\uD83C\uDFA8", label: "Product Reality", categories: ["ux", "design", "human_appeal"] },
+  business: { icon: "\uD83D\uDCB0", label: "Business Reality", categories: ["business", "revenue", "growth"] },
 };
 
 const ALL_CATEGORY_LABELS: Record<string, string> = {
@@ -737,12 +737,20 @@ export default function ResultsPage() {
       <main className="pt-24 pb-20 px-4">
         <div className="max-w-4xl mx-auto">
 
-          {/* ========== HERO: Score + Domain + Ship Readiness ========== */}
+          {/* ========== HERO: Score + Domain + Reality Check Verdict ========== */}
           <div className="rounded-2xl border border-neutral-800 bg-neutral-900 p-6 md:p-8 mb-6">
+            {/* Reality Check badge */}
+            <div className="flex justify-center lg:justify-start mb-4">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest" style={{ backgroundColor: 'rgba(249, 115, 22, 0.1)', color: '#F97316', border: '1px solid rgba(249, 115, 22, 0.3)' }}>
+                Reality Check
+              </span>
+            </div>
+
             {/* Top: Score + Domain info side by side on desktop */}
             <div className="flex flex-col lg:flex-row items-center lg:items-start gap-6 lg:gap-10 mb-6">
               {/* Score ring — fixed size, no shrink */}
               <div className="flex-shrink-0">
+                <p className="text-[10px] text-neutral-500 uppercase tracking-wider text-center mb-1">Reality Score</p>
                 <ScoreRing score={scan.overallScore} />
               </div>
 
@@ -753,8 +761,9 @@ export default function ResultsPage() {
                   Scanned {scanDate} &middot; {violations.length} issue{violations.length !== 1 ? "s" : ""} found
                 </p>
 
-                {/* Ship Readiness Badge */}
+                {/* Reality Check Verdict */}
                 <div className="mt-3">
+                  <p className="text-[10px] text-neutral-500 uppercase tracking-wider mb-1">Reality Check Verdict</p>
                   <ShipReadinessBadge readiness={shipReadiness} />
                 </div>
 
@@ -834,7 +843,7 @@ export default function ResultsPage() {
                       const t = translateViolation(v);
                       return `[${v.category.toUpperCase()}] [${v.severity}] ${t.title}\n  ${t.description}${v.selector ? `\n  Element: ${v.selector}` : ""}`;
                     });
-                    const text = `PreShip Scan Report — ${domain}\nScore: ${scan.overallScore}/100\nVerdict: ${shipReadiness}\n${violations.length} issues found\n${"=".repeat(50)}\n\n${lines.join("\n\n")}`;
+                    const text = `PreShip Reality Check — ${domain}\nReality Score: ${scan.overallScore}/100\nVerdict: ${shipReadiness}\n${violations.length} issues found\n${"=".repeat(50)}\n\n${lines.join("\n\n")}`;
                     const blob = new Blob([text], { type: "text/plain" });
                     const url = URL.createObjectURL(blob);
                     const a = document.createElement("a");
@@ -973,7 +982,7 @@ export default function ResultsPage() {
               href="/"
               className="inline-flex items-center gap-2 px-6 py-2.5 rounded-lg bg-orange-500 hover:bg-orange-600 text-white font-semibold text-sm transition-colors"
             >
-              Scan another app
+              Reality check another app
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
               </svg>

@@ -122,7 +122,7 @@ export default function LandingPage() {
           </h1>
 
           <p className="mt-6 text-lg md:text-xl text-neutral-300 max-w-2xl mx-auto animate-slide-up animate-delay-100">
-            Accessibility, security, and performance scanning for vibe-coded apps.
+            The reality check for vibe-coded apps. Accessibility, security, and performance.
             API-first. Results in seconds.
           </p>
 
@@ -282,15 +282,15 @@ export default function LandingPage() {
             <span className="text-red-400">$25,000 - $75,000</span>.
             <br />
             PreShip is{" "}
-            <span className="text-gradient">free</span>. Scan your app now.
+            <span className="text-gradient">free</span>. Reality check your app now.
           </h2>
           <p className="mt-6 text-lg text-neutral-300">
-            Stop shipping inaccessible, insecure apps. Start scanning in 30 seconds.
+            Stop shipping inaccessible, insecure apps. Get your reality check in 30 seconds.
           </p>
           <div className="mt-8 flex flex-col sm:flex-row gap-3 justify-center">
             <a href="#">
               <Button size="lg" className="px-8">
-                Scan your app free
+                Reality check your app free
               </Button>
             </a>
             <a href="/docs">
@@ -320,7 +320,7 @@ export default function LandingPage() {
                 <span className="text-lg font-bold text-white">PreShip</span>
               </div>
               <p className="text-sm text-neutral-300 leading-relaxed">
-                Quality gate for AI-generated code. Scan, fix, and ship with confidence.
+                Reality check for AI-generated code. Scan, fix, and ship with confidence.
               </p>
             </div>
 

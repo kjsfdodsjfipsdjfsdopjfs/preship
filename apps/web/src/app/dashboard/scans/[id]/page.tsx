@@ -75,9 +75,9 @@ function getScoreStrokeColorInline(score: number): string {
 }
 
 const PILLAR_CONFIG: Record<string, { icon: string; label: string; categories: string[] }> = {
-  technical: { icon: "\uD83D\uDCCA", label: "Technical", categories: ["accessibility", "security", "performance", "seo", "privacy", "mobile"] },
-  product: { icon: "\uD83C\uDFA8", label: "Product", categories: ["ux", "design", "human_appeal"] },
-  business: { icon: "\uD83D\uDCB0", label: "Business", categories: ["business", "revenue", "growth"] },
+  technical: { icon: "\uD83D\uDCCA", label: "Technical Reality", categories: ["accessibility", "security", "performance", "seo", "privacy", "mobile"] },
+  product: { icon: "\uD83C\uDFA8", label: "Product Reality", categories: ["ux", "design", "human_appeal"] },
+  business: { icon: "\uD83D\uDCB0", label: "Business Reality", categories: ["business", "revenue", "growth"] },
 };
 
 const ALL_CATEGORY_LABELS: Record<string, string> = {
@@ -499,11 +499,11 @@ export default function ScanDetailPage() {
       {/* Ship Readiness + Overall Score */}
       <div className="flex flex-col sm:flex-row items-center gap-6">
         <div className="rounded-xl border border-neutral-800 bg-neutral-900 p-6 flex flex-col items-center justify-center">
-          <p className="text-xs text-neutral-500 uppercase tracking-wider mb-3">Overall Score</p>
+          <p className="text-xs text-neutral-500 uppercase tracking-wider mb-3">Reality Score</p>
           <ScoreCircle score={scanData.score} size="lg" showLabel />
         </div>
         <div className={`flex-1 rounded-xl border p-6 flex flex-col items-center justify-center ${getShipReadinessBg(scanData.shipReadiness)}`}>
-          <p className="text-xs text-neutral-500 uppercase tracking-wider mb-3">Ship Readiness</p>
+          <p className="text-xs text-neutral-500 uppercase tracking-wider mb-3">Reality Check Verdict</p>
           <span className="text-2xl mb-1">
             {scanData.shipReadiness === "SHIP IT" ? "\uD83D\uDE80" : scanData.shipReadiness === "ALMOST READY" ? "\u26A0\uFE0F" : scanData.shipReadiness === "NEEDS WORK" ? "\uD83D\uDEE0\uFE0F" : "\uD83D\uDED1"}
           </span>

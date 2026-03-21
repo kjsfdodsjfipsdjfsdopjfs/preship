@@ -33,9 +33,9 @@ export const CATEGORY_LABELS: Record<CheckCategory, string> = {
 // ── Pillar configuration ────────────────────────────────────────────
 
 export const PILLAR_LABELS: Record<string, string> = {
-  technical: "Technical",
-  product: "Product",
-  business: "Business",
+  technical: "Technical Reality",
+  product: "Product Reality",
+  business: "Business Reality",
 };
 
 export const PILLAR_CATEGORIES: Record<string, CheckCategory[]> = {
