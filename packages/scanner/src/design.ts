@@ -952,10 +952,6 @@ export async function runDesignChecks(
       if (!faviconLink) return { hasFavicon: false, isCustom: false };
 
       const href = (faviconLink.getAttribute("href") ?? "").toLowerCase();
-      const defaultFavicons = [
-        "favicon.ico", "/favicon.ico",
-        "data:,", // empty data URI
-      ];
       // Check for framework default favicons
       const frameworkDefaults = [
         "vite.svg", "/vite.svg",
